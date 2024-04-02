@@ -1,49 +1,54 @@
-import threading
-from PIL import ImageGrab
-import socket
-import io
-import base64
-import PIL.Image as Image 
+from socket import socket
+from zlib import decompress
+
+import pygame
+
+WIDTH = 1900
+HEIGHT = 1000
 
 
+def recvall(conn, length):
+    """ Retreive all pixels. """
 
-serverAddressPort = ("127.0.0.1", 20001)
+    buf = b''
+    while len(buf) < length:
+        data = conn.recv(length - len(buf))
+        if not data:
+            return data
+        buf += data
+    return buf
 
-bufferSize = 65535
 
+def main(host='10.30.57.26', port=5000):
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+    watching = True    
 
-UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-
-def send_image(packet_number, packet_data):
+    sock = socket()
+    sock.connect((host, port))
     try:
-        UDPClientSocket.sendto(packet_number + packet_data, serverAddressPort)
-    except Exception as e:
-        print(f"Error sending data: {e}")
+        while watching:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    watching = False
+                    break
+
+            # Retreive the size of the pixels length, the pixels length and pixels
+            size_len = int.from_bytes(sock.recv(1), byteorder='big')
+            size = int.from_bytes(sock.recv(size_len), byteorder='big')
+            pixels = decompress(recvall(sock, size))
+
+            # Create the Surface from raw pixels
+            img = pygame.image.fromstring(pixels, (WIDTH, HEIGHT), 'RGB')
+
+            # Display the picture
+            screen.blit(img, (0, 0))
+            pygame.display.flip()
+            clock.tick(60)
+    finally:
+        sock.close()
 
 
-
-
-
-
-for i in range(200):
-    screenshot = ImageGrab.grab()
-    buffer = io.BytesIO()
-    screenshot.save(buffer , format= "JPEG")
-    img_str = base64.b64encode(buffer.getvalue())
-    packet_size = 32768 
-    num_packets = (len(img_str) // packet_size) + 1
-
-    for i in range(num_packets - 1):
-        packet_number = str(i).zfill(4).encode()
-        packet_data = img_str[i * packet_size: (i + 1) * packet_size]
-
-        threading.Thread(target=send_image, args=(packet_number, packet_data)).start()
-
-    UDPClientSocket.sendto(b'LAST' + img_str[(num_packets - 1) * packet_size:], serverAddressPort)
-
-
-
-
-
-
-
+if __name__ == '__main__':
+    main()
