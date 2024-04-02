@@ -1,56 +1,53 @@
-import PIL
-import socket
-import os
-import io
-from array import array
-import PIL.Image as Image 
-import base64
-import threading 
+from socket import socket
+from threading import Thread
+from zlib import compress
 
- 
-
-localIP = "127.0.0.1"
-localPort = 20001
+from mss import mss
 
 
-msgFromServer = "Hello UDP Client"
-bytesToSend = str.encode(msgFromServer)
+WIDTH = 1900
+HEIGHT = 1000
 
 
-UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-UDPServerSocket.bind((localIP, localPort))
-recieved_data = b""
-img_counter = 0
-print("UDP server up and listening")
+def retreive_screenshot(conn):
+    with mss() as sct:
+        # The region to capture
+        rect = {'top': 0, 'left': 0, 'width': WIDTH, 'height': HEIGHT}
+
+        while 'recording':
+            # Capture the screen
+            img = sct.grab(rect)
+            # Tweak the compression level here (0-9)
+            pixels = compress(img.rgb, 6)
+
+            # Send the size of the pixels length
+            size = len(pixels)
+            size_len = (size.bit_length() + 7) // 8
+            conn.send(bytes([size_len]))
+
+            # Send the actual pixels length
+            size_bytes = size.to_bytes(size_len, 'big')
+            conn.send(size_bytes)
+
+            # Send pixels
+            conn.sendall(pixels)
 
 
-while True:
+def main(host='0.0.0.0', port=5000):
+    sock = socket()
+    sock.bind((host, port))
     try:
-        bytesAddressPair = UDPServerSocket.recvfrom(65507)
-        data = bytesAddressPair[0]
-        address = bytesAddressPair[1]
-    except Exception as e:
-        print(f"Error: {e}")
+        sock.listen(5)
+        print('Server started.')
 
-    packet_number, packet_data = data[:4], data[4:]
-
-    if packet_number == b'LAST':
-
-        try:
-            img_counter += 1   
-            b = base64.b64decode(recieved_data + packet_data)
-            clientImg = Image.open(io.BytesIO(b))
-            clientImg = clientImg.save(fr"screenshots\{img_counter}.jpeg", format='JPEG')
-        except Exception as e:
-            print(f"Error decoding image data: {e}")
-        finally:
-            recieved_data = b""
-
-    else:
-        recieved_data += packet_data
+        while 'connected':
+            conn, addr = sock.accept()
+            print('Client connected IP:', addr)
+            thread = Thread(target=retreive_screenshot, args=(conn,))
+            thread.start()
+    finally:
+        sock.close()
 
 
-
-    
-
-
+if __name__ == '__main__':
+    main()
