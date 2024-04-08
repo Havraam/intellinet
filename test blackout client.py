@@ -1,8 +1,9 @@
 from socket import socket
 
 sock = socket()
-sock.connect("0.0.0.0",5001)
+sock.connect(("10.30.56.202",5001))
 while True:
     message = input("This is where you type in your input request: ")
-    message.encode()
+    message = message.encode()
     sock.send(message)
+
