@@ -4,14 +4,12 @@ from threading import *
 import ctypes
 from ctypes import wintypes
 
-BlockInput = ctypes.windll.user32.BlockInput
 
 def disable_screen():
     pass
 
-def start_blackout():
+def start_blackout(BlockInput):
     global root
-    global BlockInput
     root = tk.Tk()
     root.attributes("-fullscreen", True, "-topmost", True)
     root.protocol("WM_DELETE_WINDOW", disable_screen)
@@ -37,7 +35,8 @@ def listen_for_requests():
             while(True):
                 request = conn.recv(1024).decode()
                 if request == "BEBlackout":
-                    BlackoutThread = Thread(target = start_blackout)
+                    BlockInput = ctypes.windll.user32.BlockInput
+                    BlackoutThread = Thread(target = start_blackout, args= BlockInput)
                     BlackoutThread.start()
                 elif request == "STBlackout" :
                     root.destroy()
