@@ -1,23 +1,29 @@
 import tkinter as tk
 from socket import socket
 from threading import * 
+import ctypes
+from ctypes import wintypes
+
+BlockInput = ctypes.windll.user32.BlockInput
 
 def disable_screen():
     pass
 
 def start_blackout():
     global root
+    global BlockInput
     root = tk.Tk()
     root.attributes("-fullscreen", True, "-topmost", True)
     root.protocol("WM_DELETE_WINDOW", disable_screen)
-
-    but = tk.Button(root, text = "I have completed my tasks", command=root.destroy)
-    but.grid()
-
-
     root.mainloop()
+    blocked = BlockInput(True)
+    if blocked:
+        pass
+    else:
+        raise RuntimeError('input is already blocked by another thread')
 
 def listen_for_requests():
+
     global root    
     sock = socket()
     sock.bind(("10.30.56.202", 5001))
@@ -31,11 +37,12 @@ def listen_for_requests():
             while(True):
                 request = conn.recv(1024).decode()
                 if request == "BEBlackout":
-                    BlacoutThread = Thread(target = start_blackout)
-                    BlacoutThread.start()
+                    BlackoutThread = Thread(target = start_blackout)
+                    BlackoutThread.start()
                 elif request == "STBlackout" :
                     root.destroy()
-                    BlacoutThread.join()
+                    unblocked = BlockInput(False)
+                    BlackoutThread.join()
 
 
     finally:
