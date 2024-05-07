@@ -1,5 +1,5 @@
 import tkinter as tk
-from socket import socket
+import socket
 from threading import * 
 
 
@@ -26,8 +26,8 @@ def create_popup_window(PCID):
 
 def listen_for_requests():
     global root    
-    sock = socket()
-    sock.bind(("192.168.68.104", 5001)) #bind to this computers ip adress 
+    sock = socket.socket()
+    sock.bind((fr"{socket.gethostname()}.local", 5001)) #bind to this computers ip adress 
     try:
         sock.listen(5)
         print('Server started.')

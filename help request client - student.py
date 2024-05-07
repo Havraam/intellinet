@@ -1,7 +1,15 @@
 from socket import socket
 
+#student == client
+
+
+#getting the admin IP address 
+f = open("config.txt", "r")
+admin_addr=f.read()
+
+
 sock = socket()
-sock.connect(("192.168.68.104",5001))
+sock.connect((fr"{admin_addr}.local",5001))
 while True:
     PCID = "1"
     PCID = PCID.encode()
