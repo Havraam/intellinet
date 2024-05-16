@@ -10,23 +10,15 @@ def get_computer_name():
     sock.connect((fr"{computer_name}.local",5003))
     message = ("ADMIN?").encode()
     sock.send(message)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    admin_addr=f.write(computer_name)
+    response = sock.recv(1024).decode() 
+    if (response == "YES"):
+        f.write(computer_name)
+        message = ("OK").encode()
+        sock.send(message)
+        response = sock.recv(1024).decode()
+        if(response == "NAME"):
+            message = (socket.gethostname()).encode()
+    
     setup_window.destroy()  # Close the setup_window after processing
 
 def admin_setup():
@@ -35,7 +27,7 @@ def admin_setup():
     setup_window = Tk()
     setup_window.title("Admin Setup")
 
-    welcome_message = Label(setup_window, text="First time here, nice to meet you!")
+    welcome_message = Label(setup_window, text="Greetings friend !")
     welcome_message.pack()
 
     instruction_message = Label(setup_window, text="Please insert admin computer name:")
