@@ -1,12 +1,13 @@
 import socket
 from tkinter import Tk, Label, Entry, Button
 
+
 def get_computer_name():
     computer_name = entry.get()
     # Process the computer name here (e.g., store it)
     print(f"Admin computer name: {computer_name}")
     f = open("config.txt", "w")    
-    sock = socket()
+    sock = socket.socket()
     sock.connect((fr"{computer_name}.local",5003))
     message = ("ADMIN?").encode()
     sock.send(message)
@@ -16,7 +17,7 @@ def get_computer_name():
         message = ("OK").encode()
         sock.send(message)
         response = sock.recv(1024).decode()
-        if(response == "NAME"):
+        if(response == "NAME?"):
             message = (socket.gethostname()).encode()
     
     setup_window.destroy()  # Close the setup_window after processing
@@ -47,4 +48,11 @@ f = open("config.txt", "r")
 admin_addr=f.read()
 if (admin_addr==""):
     admin_setup()
+else:
+    sock = socket()
+    sock.connect((fr"{admin_addr}.local",5003))
+
+
+    
+
 

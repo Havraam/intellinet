@@ -3,8 +3,7 @@ import csv
 
 
 
-
-sock = socket.socket
+sock = socket.socket()
 sock.bind((fr"{socket.gethostname()}.local",5003))
 sock.listen(50)
 print ("server started")
