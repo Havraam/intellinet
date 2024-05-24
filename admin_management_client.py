@@ -1,5 +1,6 @@
 import socket
 from tkinter import Tk, Label, Entry, Button
+import time
 
 
 def get_computer_name():
@@ -19,6 +20,8 @@ def get_computer_name():
         response = sock.recv(1024).decode()
         if(response == "NAME?"):
             message = (socket.gethostname()).encode()
+            sock.send(message)
+            print("admin verified and linked")
     
     setup_window.destroy()  # Close the setup_window after processing
 
@@ -49,10 +52,8 @@ admin_addr=f.read()
 if (admin_addr==""):
     admin_setup()
 else:
-    sock = socket()
+    sock = socket.socket()
     sock.connect((fr"{admin_addr}.local",5003))
-
-
+    sock.send((socket.gethostname()).encode())
     
-
 
