@@ -4,24 +4,24 @@ import ctypes
 import pygame
 
 class Button:
-  def __init__(self, x, y, width, height, text, color, font_size):
-    self.x = x
-    self.y = y
-    self.width = width
-    self.height = height
-    self.text = text
-    self.color = color
-    self.font = pygame.font.Font(None, font_size)
-    self.text_surface = self.font.render(self.text, True, (0, 0, 0))  # Black text
+    def __init__(self, x, y, width, height, text, color, font_size):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.text = text
+        self.color = color
+        self.font = pygame.font.Font(None, font_size)
+        self.text_surface = self.font.render(self.text, True, (0, 0, 0))  # Black text
 
-  def draw(self, screen):
-    pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
-    text_rect = self.text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
-    screen.blit(self.text_surface, text_rect)
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+        text_rect = self.text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
+        screen.blit(self.text_surface, text_rect)
 
-  def is_clicked(self, pos):
-    x, y = pos
-    return (self.x <= x <= self.x + self.width) and (self.y <= y <= self.y + self.height)
+    def is_clicked(self, pos):
+        x, y = pos
+        return (self.x <= x <= self.x + self.width) and (self.y <= y <= self.y + self.height)
 
 # Set process to be DPI aware so that the resolution wont be dependant on screen scaling
 windll = ctypes.windll
@@ -94,7 +94,7 @@ def main(host='Erels-laptop.local', port=5000): #insert wanted computers name
     except ConnectionResetError:
         print("connection closed ")
     except:
-         print("something went wrong")
+        print("something went wrong")
     finally:
         sock.close()
 

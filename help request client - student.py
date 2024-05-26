@@ -9,15 +9,8 @@ admin_addr=f.read()
 
 
 sock = socket.socket()
-sock.connect((fr"{admin_addr}.local",5001))
+sock.connect((fr"{admin_addr}.local",5003))
 
 com_name = socket.gethostname()
-com_name = com_name.encode()
-sock.send(com_name)
-response = sock.recv(1024).decode()
-print(response)
-if(response == "OK"):
-    message = "HELPME"
-    message = message.encode()
-    sock.send(message)
-    sock.close()
+request = (fr"{com_name}!HELPME").encode()
+sock.send(request)

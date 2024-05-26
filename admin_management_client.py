@@ -54,6 +54,7 @@ if (admin_addr==""):
 else:
     sock = socket.socket()
     sock.connect((fr"{admin_addr}.local",5003))
-    sock.send((socket.gethostname()).encode())
-    
+    sock.send((fr"{socket.gethostname()}!HELPME").encode())
+    time.sleep(5)
+    print("slept")
 

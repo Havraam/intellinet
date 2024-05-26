@@ -1,6 +1,6 @@
 import ctypes
 from ctypes import wintypes
-from socket import socket
+import socket
 from threading import *
 import tkinter as tk
 import pywinauto
@@ -10,8 +10,8 @@ import pywinauto
 BlockInput = ctypes.windll.user32.BlockInput
 
 #starting up the server
-sock = socket()
-sock.bind(("192.168.68.103",5002))
+sock = socket.socket()
+sock.bind((fr"{socket.gethostname()}.local",5002))
 sock.listen(5)
 print('Server started.')
 while 'connected':
