@@ -226,7 +226,7 @@ def activate_screensharing():
     ScreenShare.screenshare(screenshare, computername)
 
 
-    
+
 
 
 if (__name__ == "__main__"):
