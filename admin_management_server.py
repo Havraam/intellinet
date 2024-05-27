@@ -113,6 +113,7 @@ class ClientHandler:
             self.addr = addr
             self.df = pd.read_csv("users.csv")
 
+
         def verify_client(self, given_comname):
             for com_name in self.df["COM_NAME"]:
                 if(given_comname == com_name):
@@ -122,24 +123,32 @@ class ClientHandler:
 
         def handle_client(self):
             while True:
-                request = self.conn.recv(1024).decode()
-                com_name = request.split('!')[0]
-                print(com_name)
-                if not request:
-                    break
-                # Handle different client requests
-                if request == "ADMIN?":
-                    self.handle_admin_request()
+                try:
+                    request = self.conn.recv(1024).decode()
+                    
+                    com_name = request.split('!')[0]
+                    request = request.split('!')[1]
+                    
+                    print(com_name)
+                    if not request:
+                        break
+                    # Handle different client requests
+                    if request == "ADMIN?":
+                        self.handle_admin_request()
 
-                elif self.verify_client(com_name) :
-                    print("handling user request")
-                    self.handle_user_request(request)
+                    elif self.verify_client(com_name) :
+                        print("handling user request")
+                        self.handle_user_request(com_name,request)
 
-                else:
-                    self.send_error("Invalid request")
+                    else:
+                        self.send_error("Invalid request")
 
-                # Update user status (optional)
-                # self.update_status(request, "online")
+                    # Update user status (optional)
+                    # self.update_status(request, "online")`
+                except:
+                    print("connection ended")
+                    self.update_status(com_name, "offline")
+                    
 
             self.conn.close()
             print(f"Client {self.addr} disconnected")
@@ -159,15 +168,16 @@ class ClientHandler:
                     csv_writer = csv.writer(csvfile)
                     csv_writer.writerow(data)
 
-        def handle_user_request(self, request):
-            com_name = request.split('!')[0]
+        def handle_user_request(self, com_name ,request):
             print(request)
-            if ("online" in request):
+            if ("online" == request):
                 self.update_status(com_name, "online")
                 self.send_message("Welcome back into the system")
-            if ("HELPME" in request):
+            if ("HELPME" == request):
                 print("HELPME")
                 create_popup_window(com_name)
+            if ("KEEP_ALIVE" == request):
+                pass
 
         def update_status(self, com_name, status):
             self.df.loc[self.df["COM_NAME"] == com_name, "Status"] = status

@@ -176,20 +176,33 @@ def get_admin_addr ():
         print("error reading configuration file")
 
 def start_services():
+    keep_alive_thread = Thread(target=intial_admin_connect , args= get_admin_addr())
+    keep_alive_thread.start()
     screensharing_thread = Thread(target=start_screensharing_server)
     screensharing_thread.start()
     blackout_thread = Thread(target=start_blackout_server)
     blackout_thread.start()
+
+def intial_admin_connect(admin_addr):
+    sock = socket.socket()
+    sock.connect((fr"{admin_addr}.local",5003))
+    while True:
+        try:
+            sock.send((FR"{socket.gethostname()}!KEEP_ALIVE").encode())
+            time.sleep(2)
+        except:
+            print("connection ended - admin went offline")
+
+    
     
 
 if (__name__=="__main__"):
-    f = open("config.txt", "r")
-    admin_addr=f.read()
+    admin_addr= get_admin_addr()
     if (admin_addr==""):
         admin_setup()
     else:
-        connection_monitor()
         start_services()
+        
         
 
             
