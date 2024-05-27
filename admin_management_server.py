@@ -6,6 +6,7 @@ import pygame
 import ctypes
 from threading import Thread
 from zlib import decompress
+
 import tkinter as tk
 import time
 
@@ -27,9 +28,14 @@ class ComputerIcon:
 
         self.menu = Menu(master, tearoff=0)
         self.menu.add_command(label="watch screen", command=self.activate_function_1)
-        self.menu.add_command(label="disable computer", command=self.activate_function_2)
+        self.function_2_menu_item = self.menu.add_command(label="disable computer", command=self.activate_function_2, state='normal')
+        # Initially, function 3 is grayed out
+        self.function_3_menu_item = self.menu.add_command(label="enable computer", command=self.activate_function_3, state='disabled')
+        
+
         self.menu.add_separator()
         self.menu.add_command(label="Remove", command=self.remove_icon)
+
 
     def show_context_menu(self, event):
         self.menu.post(event.x_root, event.y_root)
@@ -39,7 +45,17 @@ class ComputerIcon:
         print(f" screen share activated on {self.icon.cget('text')}")
 
     def activate_function_2(self):
+        global_start_blackout(self.computer_name)
         print(f" blackout started on {self.icon.cget('text')}")
+        self.menu.entryconfig("disable computer",state = 'disabled')
+        self.menu.entryconfig("enable computer",state = 'normal')
+        
+        
+    def activate_function_3(self):
+        blackout.stop_blackout()
+        self.menu.entryconfig("disable computer",state = 'normal')
+        self.menu.entryconfig("enable computer",state = 'disabled')
+
 
     def remove_icon(self):
         self.frame.destroy()
@@ -288,19 +304,34 @@ class ClientHandler:
 
 class Blackout:
     def __init__(self,target) -> None:
+        self.active = False
         self.sock = socket.socket()
         self.target = target
         self.sock.connect((fr"{target}.local",5002))
+        
 
     def start_blackout(self):
-        while True:
-            #IF specific button on gui pressed ----> send BEB
-            #IF specific button on gui pressed ----> send STB
-            message = input("This is where you type in your input request: ")
-            message = message.encode()
-            self.sock.send(message)
+        message = "BEB"
+        message = message.encode()
+        self.sock.send(message)
+        self.active= True
+        while self.active:
+            time.sleep(3)
+            self.sock.send(("KEEP_ALIVE").encode())
+    
+    def stop_blackout(self):
+        message = "STB"
+        message = message.encode()
+        self.sock.send(message)
+        self.active = False
         
-        
+def global_start_blackout(computer_name):
+    global blackout
+    blackout = Blackout(computer_name) 
+    blackout_thread = Thread(target=blackout.start_blackout)
+    blackout_thread.daemon = True
+    blackout_thread.start()
+
 
 def create_popup_window(given_COMNAME):
     # Create the main window
@@ -327,7 +358,6 @@ def activate_screensharing(com_name):
     screensharing_thread = Thread(target=screenshare.screenshare, args=(com_name,))
     screensharing_thread.daemon = True
     screensharing_thread.start()
-    screensharing_thread.join()
     #ScreenShare.screenshare(screenshare, com_name)
 
 def run_GUI():
