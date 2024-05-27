@@ -50,6 +50,8 @@ class DesktopApp:
         self.master = master
         master.title("Desktop App")
         master.geometry("1000x800")  # Adjusted to fit more icons
+        
+
 
         self.computers = []  # Start with an empty list of computers
         self.icons = []
@@ -193,6 +195,7 @@ class ScreenShare:
             print("something went wrong")
         finally:
             sock.close()
+            pygame.quit()
 
 
 class ClientHandler:
@@ -250,7 +253,7 @@ class ClientHandler:
                 self.conn.send(("NAME?").encode())
                 com_name = self.conn.recv(1024).decode()
                 print(com_name)
-                app = app.add_computer(com_name)
+                app.add_computer(com_name)
                 data = [com_name, 'online']
                 with open(fr"users.csv", 'a', newline='') as csvfile:
                     csv_writer = csv.writer(csvfile)
@@ -321,7 +324,11 @@ def create_popup_window(given_COMNAME):
 
 def activate_screensharing(com_name):
     screenshare = ScreenShare()
-    ScreenShare.screenshare(screenshare, com_name)
+    screensharing_thread = Thread(target=screenshare.screenshare, args=(com_name,))
+    screensharing_thread.daemon = True
+    screensharing_thread.start()
+    screensharing_thread.join()
+    #ScreenShare.screenshare(screenshare, com_name)
 
 def run_GUI():
     global app
@@ -338,6 +345,7 @@ if (__name__ == "__main__"):
     sock.listen(5)
     print("Server started")
     gui_thread = Thread(target=run_GUI)
+    gui_thread.daemon = True  
     gui_thread.start()
     while True:
         conn, addr = sock.accept()
