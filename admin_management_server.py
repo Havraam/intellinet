@@ -9,6 +9,94 @@ from zlib import decompress
 import tkinter as tk
 import time
 
+
+import tkinter as tk
+from tkinter import Menu
+
+class ComputerIcon:
+    def __init__(self, master, x, y, computer_name):
+        self.master = master
+        self.computer_name = computer_name
+        self.frame = tk.Frame(master, width=100, height=100)
+        self.frame.place(x=x, y=y)
+
+        self.icon = tk.Label(self.frame, text=computer_name, bg="lightblue", width=12, height=6)
+        self.icon.pack()
+
+        self.icon.bind("<Button-3>", self.show_context_menu)
+
+        self.menu = Menu(master, tearoff=0)
+        self.menu.add_command(label="watch screen", command=self.activate_function_1)
+        self.menu.add_command(label="disable computer", command=self.activate_function_2)
+        self.menu.add_separator()
+        self.menu.add_command(label="Remove", command=self.remove_icon)
+
+    def show_context_menu(self, event):
+        self.menu.post(event.x_root, event.y_root)
+
+    def activate_function_1(self):
+        activate_screensharing(self.computer_name)
+        print(f" screen share activated on {self.icon.cget('text')}")
+
+    def activate_function_2(self):
+        print(f" blackout started on {self.icon.cget('text')}")
+
+    def remove_icon(self):
+        self.frame.destroy()
+        self.master.remove_computer(self.computer_name)
+
+class DesktopApp:
+    def __init__(self, master):
+        self.master = master
+        master.title("Desktop App")
+        master.geometry("1000x800")  # Adjusted to fit more icons
+
+        self.computers = []  # Start with an empty list of computers
+        self.icons = []
+
+        # Adding control buttons
+        # self.add_button = tk.Button(master, text="Add Computer", command=self.add_computer)
+        # self.add_button.pack()
+
+    def load_computers(self):
+        df = pd.read_csv("users.csv")
+        for value in df['COM_NAME']:
+            if value['Status'] == 'online':
+                computer_name = value
+                self.computers.append(value)
+                self.create_icons()
+
+    def add_computer(self, com_name):
+        self.computers.append(com_name)
+        self.create_icons()
+
+    def remove_computer(self, computer_name):
+        self.computers = [computer for computer in self.computers if computer != computer_name]
+        self.create_icons()
+
+
+    def create_icons(self):
+        self.clear_icons()
+        for i, computer in enumerate(self.computers):
+            x = (i % 6) * 150 + 25  # 6 icons per row
+            y = (i // 6) * 150 + 25  # New row every 6 icons
+            icon = ComputerIcon(self.master, x, y, computer)
+            self.icons.append(icon)
+
+    def clear_icons(self):
+        for icon in self.icons:
+            icon.frame.destroy()
+        self.icons = []
+
+    def reposition_icons(self):
+        for i, icon in enumerate(self.icons):
+            x = (i % 6) * 150 + 25
+            y = (i // 6) * 150 + 25
+            icon.frame.place(x=x, y=y)
+
+
+
+
 class Button:
     def __init__(self, x, y, width, height, text, color, font_size):
         self.x = x
@@ -28,7 +116,6 @@ class Button:
     def is_clicked(self, pos):
         x, y = pos
         return (self.x <= x <= self.x + self.width) and (self.y <= y <= self.y + self.height)
-
 
 class ScreenShare:
     # Set process to be DPI aware so that the resolution wont be dependant on screen scaling
@@ -52,7 +139,7 @@ class ScreenShare:
         return buf
 
 
-    def screenshare(self, host='Erels-laptop.local', port=5000): #insert wanted computers name 
+    def screenshare(self, host, port=5000): #insert wanted computers name 
         pygame.init()
         screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT)) # making pygamae window 
         clock = pygame.time.Clock()
@@ -66,7 +153,8 @@ class ScreenShare:
         button = Button(self.WIDTH - button_width - 10, self.HEIGHT - button_height - 10, button_width, button_height, button_text, button_color, font_size)
 
         watching = True
-
+        host = host+".local"
+        print(host)
         sock = socket.socket()
         sock.connect((host, port))
         share_res = sock.recv(1024).decode() #reciving target computer's resolution
@@ -125,9 +213,10 @@ class ClientHandler:
             while True:
                 try:
                     request = self.conn.recv(1024).decode()
-                    
-                    com_name = request.split('!')[0]
-                    request = request.split('!')[1]
+                    print("request - ",request)
+                    request = request.split('!')
+                    com_name = request[0]
+                    request = request[1]
                     
                     print(com_name)
                     if not request:
@@ -143,15 +232,13 @@ class ClientHandler:
                     else:
                         self.send_error("Invalid request")
 
-                    # Update user status (optional)
-                    # self.update_status(request, "online")`
-                except:
-                    print("connection ended")
+                except ConnectionResetError:
+                    print("ConnectionResetError - connection ended")
                     self.update_status(com_name, "offline")
+                    app.remove_computer(com_name)
+                    break
                     
 
-            self.conn.close()
-            print(f"Client {self.addr} disconnected")
         
         
                 
@@ -163,6 +250,7 @@ class ClientHandler:
                 self.conn.send(("NAME?").encode())
                 com_name = self.conn.recv(1024).decode()
                 print(com_name)
+                app = app.add_computer(com_name)
                 data = [com_name, 'online']
                 with open(fr"users.csv", 'a', newline='') as csvfile:
                     csv_writer = csv.writer(csvfile)
@@ -173,6 +261,7 @@ class ClientHandler:
             if ("online" == request):
                 self.update_status(com_name, "online")
                 self.send_message("Welcome back into the system")
+                app.add_computer(com_name)
             if ("HELPME" == request):
                 print("HELPME")
                 create_popup_window(com_name)
@@ -230,23 +319,28 @@ def create_popup_window(given_COMNAME):
     # Run the main loop to display the window
     window.mainloop()
 
-def activate_screensharing():
+def activate_screensharing(com_name):
     screenshare = ScreenShare()
-    computername = input("insert tagert computer name: ") #in gui there will be option to choose computer and than chosen computer will be auto-filled
-    ScreenShare.screenshare(screenshare, computername)
+    ScreenShare.screenshare(screenshare, com_name)
 
-
-
-
+def run_GUI():
+    global app
+    root = tk.Tk()
+    app = DesktopApp(root)
+    root.mainloop()
 
 if (__name__ == "__main__"):
+    df = pd.read_csv("users.csv")
+    df['Status'] = df['Status'].replace({'online': 'offline'})
+    df.to_csv("users.csv", index=False)  
     sock = socket.socket()
     sock.bind((fr"{socket.gethostname()}.local", 5003))
     sock.listen(5)
     print("Server started")
+    gui_thread = Thread(target=run_GUI)
+    gui_thread.start()
     while True:
         conn, addr = sock.accept()
         print(f'Client connected IP: {addr}')
         client_handler = ClientHandler(conn, addr)
         client_handler.start()  # Run client handler in a separate thread
-    
