@@ -8,6 +8,30 @@ import pywinauto
 from zlib import compress
 from mss import mss
 import ctypes
+import tkinter as tk
+
+
+
+class HelpWindow:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Need help?")
+        self.root.geometry("200x100")
+
+        label = tk.Label(self.root, text="Need help?")
+        label.pack(pady=10)
+
+        call_help_button = tk.Button(self.root, text="Call Help", command=send_help_request)
+        call_help_button.pack(pady=5)
+
+        self.root.protocol("WM_DELETE_WINDOW", self.minimize_window)
+
+    def minimize_window(self):
+        self.root.iconify()
+
+    def show(self):
+        self.root.mainloop()
+
 
 class Screenshare:
 # Set process to be DPI aware
@@ -104,10 +128,11 @@ def send_help_request():
     f = open("config.txt", "r")
     admin_addr=f.read()
     sock = socket.socket()
-    sock.connect((fr"{admin_addr}.local",5003))
+    sock.connect((fr"{admin_addr}.local",5001))
     com_name = socket.gethostname()
     request = (fr"{com_name}!HELPME").encode()
     sock.send(request)
+    print("help request sent")
 
 def admin_setup():
     global setup_window
@@ -201,6 +226,11 @@ def get_admin_addr ():
     except:
         print("error reading configuration file")
 
+def start_help_window():
+    help_window = HelpWindow()
+    help_window.show()
+
+
 def start_services():
     admin_addr = get_admin_addr()
     print(admin_addr)
@@ -210,6 +240,11 @@ def start_services():
     screensharing_thread.start()
     blackout_thread = Thread(target=start_blackout_server)
     blackout_thread.start()
+    time.sleep(1)
+    help_window_thread = Thread(target=start_help_window)
+    help_window_thread.start()
+
+    
 
 def intial_admin_connect(admin_addr) :
     try:
@@ -246,5 +281,6 @@ if (__name__=="__main__"):
         
 
             
+
 
 

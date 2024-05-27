@@ -236,8 +236,6 @@ class ClientHandler:
                     request = request.split('!')
                     com_name = request[0]
                     request = request[1]
-                    
-                    print(com_name)
                     if not request:
                         break
                     # Handle different client requests
@@ -256,6 +254,8 @@ class ClientHandler:
                     self.update_status(com_name, "offline")
                     app.remove_computer(com_name)
                     break
+                except IndexError:
+                    print ("index error!!!!")
                     
 
         
@@ -281,9 +281,9 @@ class ClientHandler:
                 self.update_status(com_name, "online")
                 self.send_message("Welcome back into the system")
                 app.add_computer(com_name)
-            if ("HELPME" == request):
-                print("HELPME")
-                create_popup_window(com_name)
+            # if ("HELPME" == request):
+            #     popup_window_thread = Thread(target=create_popup_window , args=(com_name,))
+            #     popup_window_thread.start()
             if ("KEEP_ALIVE" == request):
                 pass
 
@@ -332,6 +332,22 @@ def global_start_blackout(computer_name):
     blackout_thread.daemon = True
     blackout_thread.start()
 
+def help_request_handler():
+    sock = socket.socket()
+    sock.bind((fr"{socket.gethostname()}.local", 5001))
+    sock.listen(50)
+    while True:
+        conn, addr = sock.accept()
+        request = conn.recv(1024).decode()
+        print("request - ",request)
+        request = request.split('!')
+        com_name = request[0]
+        request = request[1]
+        if (request == "HELPME"):
+            popup_window_thread = Thread(target=create_popup_window , args=(com_name,))
+            popup_window_thread.start()
+
+
 
 def create_popup_window(given_COMNAME):
     # Create the main window
@@ -345,6 +361,8 @@ def create_popup_window(given_COMNAME):
     # Function to close the window
     def close_window():
         window.destroy()
+        window.quit()  # Exit the main loop
+
 
     # Create the dismiss button
     dismiss_button = tk.Button(window, text="Dismiss", command=close_window)
@@ -377,6 +395,9 @@ if (__name__ == "__main__"):
     gui_thread = Thread(target=run_GUI)
     gui_thread.daemon = True  
     gui_thread.start()
+    help_thread = Thread(target=help_request_handler)
+    help_thread.daemon = True
+    help_thread.start()
     while True:
         conn, addr = sock.accept()
         print(f'Client connected IP: {addr}')
