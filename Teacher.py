@@ -10,6 +10,7 @@ import tkinter as tk
 import time
 import tkinter as tk
 from tkinter import Menu
+from tkinter import font   
 
 class ComputerIcon:
     def __init__(self, master, x, y, computer_name):
@@ -61,10 +62,14 @@ class ComputerIcon:
 class DesktopApp:
     def __init__(self, master):
         self.master = master
-        master.title("Desktop App")
+        master.title("intelinet")
         master.geometry("1000x800")  # Adjusted to fit more icons
-        
 
+        large_font = font.Font(family="Helvetica", size=20, weight="bold")
+
+        # Create the "Hello" label in the top right corner with larger text
+        self.hello_label = tk.Label(master, text=socket.gethostname(), font=large_font)
+        self.hello_label.place(x=775, y=10) 
 
         self.computers = []  # Start with an empty list of computers
         self.icons = []
@@ -247,7 +252,6 @@ class ClientHandler:
                 self.conn.send(("NAME?").encode())
                 com_name = self.conn.recv(1024).decode()
                 print(com_name)
-                app.add_computer(com_name)
                 data = [com_name, 'online']
                 with open(fr"users.csv", 'a', newline='') as csvfile:
                     csv_writer = csv.writer(csvfile)
