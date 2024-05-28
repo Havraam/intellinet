@@ -6,11 +6,8 @@ import pygame
 import ctypes
 from threading import Thread
 from zlib import decompress
-
 import tkinter as tk
 import time
-
-
 import tkinter as tk
 from tkinter import Menu
 
@@ -112,6 +109,9 @@ class DesktopApp:
             y = (i // 6) * 150 + 25
             icon.frame.place(x=x, y=y)
 
+
+
+
 class Button:
     def __init__(self, x, y, width, height, text, color, font_size):
         self.x = x
@@ -168,12 +168,10 @@ class ScreenShare:
         button = Button(self.WIDTH - button_width - 10, self.HEIGHT - button_height - 10, button_width, button_height, button_text, button_color, font_size)
 
         watching = True
-        host = host+".local"
-        print(host)
+        host_name = host+".local"
         sock = socket.socket()
-        sock.connect((host, port))
+        sock.connect((host_name, port))
         share_res = sock.recv(1024).decode() #reciving target computer's resolution
-        
         share_width = int((share_res.split(","))[0]) #spliting and turning share res to integer 
         share_height = int((share_res.split(","))[1])
 
@@ -210,6 +208,7 @@ class ScreenShare:
             sock.close()
             pygame.quit()
 
+
 class ClientHandler:
         def __init__(self, conn, addr):
             self.conn = conn
@@ -228,6 +227,8 @@ class ClientHandler:
             while True:
                 try:
                     request = self.conn.recv(1024).decode()
+                    if not request:
+                        break
                     print("request - ",request)
                     request = request.split('!')
                     com_name = request[0]
@@ -258,7 +259,6 @@ class ClientHandler:
         
                 
         def handle_admin_request(self):
-            # Implement admin logic here (e.g., toggle modules)
             self.conn.send(("YES").encode())
             request = self.conn.recv(1024).decode()
             if request == "OK":
@@ -288,7 +288,9 @@ class ClientHandler:
             self.conn.send(message.encode())
 
         def send_error(self, error):
-            self.send_message(f"Error: {error}")
+            self.conn.send((f"Error: {error}").encode())
+
+        
         def start(self):
             thread = Thread(target=self.handle_client)
             thread.start()

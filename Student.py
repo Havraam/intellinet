@@ -2,13 +2,13 @@ import socket
 from tkinter import Tk, Label, Entry, Button
 import time
 from ctypes import wintypes
-import socket
 from threading import *
 import pywinauto
 from zlib import compress
 from mss import mss
 import ctypes
 import tkinter as tk
+
 
 
 
@@ -234,7 +234,7 @@ def start_help_window():
 def start_services():
     admin_addr = get_admin_addr()
     print(admin_addr)
-    keep_alive_thread = Thread(target=admin_connect , args = (admin_addr,))
+    keep_alive_thread = Thread(target=intial_admin_connect , args = (admin_addr,))
     keep_alive_thread.start()
     screensharing_thread = Thread(target=start_screensharing_server)
     screensharing_thread.start()
@@ -244,15 +244,18 @@ def start_services():
     help_window_thread = Thread(target=start_help_window)
     help_window_thread.start()
 
+
+
     
 
-def admin_connect(admin_addr) :
+    
+
+def intial_admin_connect(admin_addr) :
     try:
         sock = socket.socket()
         sock.connect((fr"{admin_addr}.local",5003))
         sock.send((fr"{socket.gethostname()}!online").encode())
-        message = sock.recv(1024).decode()
-        print(message)
+
         while True:
             try:
                 sock.send((fr"{socket.gethostname()}!KEEP_ALIVE").encode())
