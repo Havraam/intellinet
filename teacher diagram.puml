@@ -1,0 +1,66 @@
+@startuml teacher diagram
+
+class ComputerIcon {
+    +__init__(master, x, y, computer_name)
+    -show_context_menu(event)
+    -activate_function_1()
+    -activate_function_2()
+    -activate_function_3()
+    -remove_icon()
+}
+
+class DesktopApp {
+    +__init__(master)
+    +load_computers()
+    +add_computer(com_name)
+    +remove_computer(computer_name)
+    +create_icons()
+    +clear_icons()
+    +reposition_icons()
+}
+
+class Button {
+    +__init__(x, y, width, height, text, color, font_size)
+    +draw(screen)
+    +is_clicked(pos)
+}
+
+class ScreenShare {
+    +__init__()
+    -recvall(conn, length)
+    +screenshare(host, port=5000)
+}
+
+class ClientHandler {
+    +__init__(conn, addr)
+    +verify_client(given_comname)
+    +handle_client()
+    -handle_admin_request()
+    -handle_user_request(com_name, request)
+    -update_status(com_name, status)
+    -send_message(message)
+    -send_error(error)
+    +start()
+}
+
+class Blackout {
+    +__init__(target)
+    +start_blackout()
+    +stop_blackout()
+}
+
+ComputerIcon --> tk.Frame
+ComputerIcon --> tk.Label
+ComputerIcon --> Menu
+DesktopApp --> tk.Tk
+DesktopApp --> ComputerIcon
+ScreenShare --> socket
+ScreenShare --> pygame
+ScreenShare --> ctypes.windll
+ScreenShare --> Button
+ClientHandler --> socket
+ClientHandler --> pandas
+ClientHandler --> csv
+Blackout --> socket
+
+@enduml

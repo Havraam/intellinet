@@ -6,100 +6,13 @@ import pygame
 import ctypes
 from threading import Thread
 from zlib import decompress
+
 import tkinter as tk
 import time
+
+
 import tkinter as tk
 from tkinter import Menu
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
-from Crypto.Util.Padding import pad, unpad
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import padding
-import random 
-import string
-
-
-def create_AES_key():
-    # Define a pool of characters to choose from
-    characters = "&%$@Supercalifragilisticexpialidocious!@#)(" + string.ascii_letters + string.digits
-    aes_key = "".join(random.choice(characters) for _ in range(16))  # Generate a 16-character key
-    print(aes_key)
-    return aes_key.encode('utf-8')  # Convert the string to bytes
-
-def generate_teacher_key_pair():
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
-    public_key = private_key.public_key()
-    return private_key, public_key
-
-AES_KEY = create_AES_key()
-teacher_private_key, teacher_public_key = generate_teacher_key_pair()
-
-def get_aes_key_by_comname(com_name):
-    df = pd.read_csv("users.csv")
-    key = df.loc[df["COM_NAME"] == com_name, "AES_key"]
-    print(key)
-    return key
-
-def encrypt(data):
-    cipher = AES.new(AES_KEY, AES.MODE_CBC)
-    iv = cipher.iv
-    encrypted_data = cipher.encrypt(pad(data, AES.block_size))
-    return iv + encrypted_data
-
-def decrypt(encrypted_data,aes_key):
-    iv = encrypted_data[:AES.block_size]
-    cipher = AES.new(AES_KEY, AES.MODE_CBC, iv)
-    decrypted_data = unpad(cipher.decrypt(encrypted_data[AES.block_size:]), AES.block_size)
-    return decrypted_data.decode()
-
-def send_encrypted_data(data, conn):
-    encrypted_data = encrypt(data)
-    conn.send(encrypted_data)
-
-def receive_encrypted_data(conn,com_name):
-    encrypted_data = conn.recv(4096)
-    decrypted_data = decrypt(encrypted_data, get_aes_key_by_comname(com_name))
-    encrypted_data = encrypted_data.decode()
-    return decrypted_data
-
-def encrypt_aes_key(public_key):
-    encrypted_aes_key = public_key.encrypt(
-        AES_KEY,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return encrypted_aes_key
-
-# Decrypt AES key using RSA private key
-def decrypt_aes_key(encrypted_aes_key):
-    aes_key = teacher_private_key.decrypt(
-        encrypted_aes_key,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return aes_key  
-
-def receive_public_key(conn):
-    public_key_bytes = conn.recv(4096)
-    public_key = serialization.load_pem_public_key(
-        public_key_bytes,
-        backend=default_backend()
-    )
-    return public_key
-
-
 
 class ComputerIcon:
     def __init__(self, master, x, y, computer_name):
@@ -199,9 +112,6 @@ class DesktopApp:
             y = (i // 6) * 150 + 25
             icon.frame.place(x=x, y=y)
 
-
-
-
 class Button:
     def __init__(self, x, y, width, height, text, color, font_size):
         self.x = x
@@ -258,12 +168,12 @@ class ScreenShare:
         button = Button(self.WIDTH - button_width - 10, self.HEIGHT - button_height - 10, button_width, button_height, button_text, button_color, font_size)
 
         watching = True
-        host_name = host+".local"
+        host = host+".local"
+        print(host)
         sock = socket.socket()
-        sock.connect((host_name, port))
-        #share_res = sock.recv(1024).decode() #reciving target computer's resolution
-        share_res = receive_encrypted_data(sock,host)
-
+        sock.connect((host, port))
+        share_res = sock.recv(1024).decode() #reciving target computer's resolution
+        
         share_width = int((share_res.split(","))[0]) #spliting and turning share res to integer 
         share_height = int((share_res.split(","))[1])
 
@@ -300,10 +210,8 @@ class ScreenShare:
             sock.close()
             pygame.quit()
 
-
 class ClientHandler:
         def __init__(self, conn, addr):
-            self.student_aes_key=''
             self.conn = conn
             self.addr = addr
             self.df = pd.read_csv("users.csv")
@@ -350,6 +258,7 @@ class ClientHandler:
         
                 
         def handle_admin_request(self):
+            # Implement admin logic here (e.g., toggle modules)
             self.conn.send(("YES").encode())
             request = self.conn.recv(1024).decode()
             if request == "OK":
@@ -366,7 +275,6 @@ class ClientHandler:
             print(request)
             if ("online" == request):
                 self.update_status(com_name, "online")
-                self.key_exchange(com_name)
                 self.send_message("Welcome back into the system")
                 app.add_computer(com_name)
             if ("KEEP_ALIVE" == request):
@@ -377,33 +285,10 @@ class ClientHandler:
             self.df.to_csv("users.csv", index=False)
 
         def send_message(self, message):
-            #self.conn.send(message.encode())
-            send_encrypted_data(message.encode() , self.conn)
+            self.conn.send(message.encode())
 
         def send_error(self, error):
-            self.conn.send((f"Error: {error}").encode())
-
-        def key_exchange(self,com_name):
-            self.conn.send(("Pkey").encode())
-            teacher_public_key_bytes = teacher_public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-            )
-            self.conn.sendall(teacher_public_key_bytes)
-            print("public key sent")
-            student_public_key = receive_public_key(self.conn)
-            print("student public key recieved")
-            encrypted_aes_key = encrypt_aes_key(student_public_key)
-            self.conn.send(encrypted_aes_key)
-            print("encrypted aes key sent")
-            student_encrypted_aes_key= self.conn.recv(1024)
-            self.student_aes_key= decrypt_aes_key(student_encrypted_aes_key)
-            self.df.loc[self.df["COM_NAME"] == com_name, "AES_key"] = self.student_aes_key
-            print("student aes key decrypted")
-            print(self.student_aes_key)
-
-
-        
+            self.send_message(f"Error: {error}")
         def start(self):
             thread = Thread(target=self.handle_client)
             thread.start()
@@ -419,19 +304,16 @@ class Blackout:
     def start_blackout(self):
         message = "BEB"
         message = message.encode()
-        #self.sock.send(message)
-        send_encrypted_data(message,self.sock)
+        self.sock.send(message)
         self.active= True
         while self.active:
             time.sleep(3)
-            #self.sock.send(("KEEP_ALIVE").encode())
-            send_encrypted_data((("KEEP_ALIVE").encode()),self.sock)
+            self.sock.send(("KEEP_ALIVE").encode())
     
     def stop_blackout(self):
         message = "STB"
         message = message.encode()
-        #self.sock.send(message)
-        send_encrypted_data(message,self.sock)
+        self.sock.send(message)
         self.active = False
         
 def global_start_blackout(computer_name):

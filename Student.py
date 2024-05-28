@@ -2,102 +2,13 @@ import socket
 from tkinter import Tk, Label, Entry, Button
 import time
 from ctypes import wintypes
+import socket
 from threading import *
 import pywinauto
 from zlib import compress
 from mss import mss
 import ctypes
 import tkinter as tk
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
-from Crypto.Util.Padding import pad, unpad
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import padding
-import random
-import string
-
-def create_AES_key():
-    # Define a pool of characters to choose from
-    characters = "&%$@Supercalifragilisticexpialidocious!@#)(" + string.ascii_letters + string.digits
-    aes_key = "".join(random.choice(characters) for _ in range(16))  # Generate a 16-character key
-    print(aes_key)
-    return aes_key.encode('utf-8') 
-
-# Generate RSA key pair for the student side
-def generate_student_key_pair():
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
-    public_key = private_key.public_key()
-    return private_key, public_key
-
-AES_KEY = create_AES_key()
-student_private_key, student_public_key = generate_student_key_pair()
-
-def encrypt_aes_key(public_key):
-    encrypted_aes_key = public_key.encrypt(
-        AES_KEY ,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return encrypted_aes_key
-
-def decrypt_aes_key(encrypted_aes_key):
-    aes_key = student_private_key.decrypt(
-        encrypted_aes_key,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return aes_key
-
-
-def encrypt(data):
-    cipher = AES.new(AES_KEY, AES.MODE_CBC)
-    iv = cipher.iv
-    encrypted_data = cipher.encrypt(pad(data.encode(), AES.block_size))
-    return iv + encrypted_data
-
-def decrypt(encrypted_data):
-    iv = encrypted_data[:AES.block_size]
-    cipher = AES.new(AES_KEY, AES.MODE_CBC, iv)
-    decrypted_data = unpad(cipher.decrypt(encrypted_data[AES.block_size:]), AES.block_size)
-    return decrypted_data.decode()
-
-def send_encrypted_data(data, conn):
-    encrypted_data = encrypt(data)
-    conn.send(encrypted_data)
-
-def receive_encrypted_data(conn):
-    encrypted_data = conn.recv(4096)
-    decrypted_data = decrypt(encrypted_data)
-    decrypted_data = decrypted_data.decode()
-    return decrypted_data
-
-def receive_public_key(sock):
-    public_key_bytes = sock.recv(4096)
-    public_key = serialization.load_pem_public_key(
-        public_key_bytes,
-        backend=default_backend()
-    )
-    return public_key
-
-
-
-
-
-
-
-
 
 
 
@@ -173,8 +84,7 @@ class Screenshare:
                 conn, addr = sock.accept()
                 print('Client connected IP:', addr)
                 resolution = fr"{self.WIDTH},{self.HEIGHT}"
-                #conn.send (resolution.encode())
-                send_encrypted_data(resolution.encode(),conn)
+                conn.send (resolution.encode())
                 thread = Thread(target=self.retreive_screenshot, args=(conn,))
                 thread.start()
                 thread.join()
@@ -221,8 +131,7 @@ def send_help_request():
     sock.connect((fr"{admin_addr}.local",5001))
     com_name = socket.gethostname()
     request = (fr"{com_name}!HELPME").encode()
-    #sock.send(request)
-    send_encrypted_data(request,sock)
+    sock.send(request)
     print("help request sent")
 
 def admin_setup():
@@ -280,8 +189,7 @@ def start_blackout_server():
         print("client connected IP:",addr)
         while (True):
             #endless loop to always recieve requests 
-            #request = conn.recv(1024).decode()
-            request = receive_encrypted_data(conn)
+            request = conn.recv(1024).decode()
             #if request == BEB - begin blackout than --->
             if request == "BEB":
                 #stop all currently playing media
@@ -298,8 +206,7 @@ def start_blackout_server():
                     try:
                         #while loop that runs as long as STB - stop blackout request hasnt been recieved 
                         while(blackout):
-                            #dis_request = conn.recv(1024).decode()
-                            dis_request = receive_encrypted_data(conn)
+                            dis_request = conn.recv(1024).decode()
                             if (dis_request == "STB"):
                                 blackout = False
                     finally:
@@ -327,7 +234,7 @@ def start_help_window():
 def start_services():
     admin_addr = get_admin_addr()
     print(admin_addr)
-    keep_alive_thread = Thread(target=intial_admin_connect , args = (admin_addr,))
+    keep_alive_thread = Thread(target=admin_connect , args = (admin_addr,))
     keep_alive_thread.start()
     screensharing_thread = Thread(target=start_screensharing_server)
     screensharing_thread.start()
@@ -337,40 +244,15 @@ def start_services():
     help_window_thread = Thread(target=start_help_window)
     help_window_thread.start()
 
-def key_exchange(sock):
-    teacer_public_key = receive_public_key(sock)
-    print("teacher public key recieved")
-
-    student_public_key_bytes = student_public_key.public_bytes(
-    encoding=serialization.Encoding.PEM,
-    format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    sock.sendall(student_public_key_bytes)
-    print("public key sent")
-
-    teacher_encrypted_aes_key= sock.recv(1024)
-    teacher_aes_key= decrypt_aes_key(teacher_encrypted_aes_key)
-    print("teacher aes key decrypted")
-    
-    encrypted_aes_key = encrypt_aes_key(teacer_public_key)
-    sock.send(encrypted_aes_key)
-    print("encrypted aes key sent")
-
-    
-    print(teacher_aes_key)
-    return teacher_aes_key
     
 
-def intial_admin_connect(admin_addr) :
-    global teacher_aes_key
+def admin_connect(admin_addr) :
     try:
         sock = socket.socket()
         sock.connect((fr"{admin_addr}.local",5003))
         sock.send((fr"{socket.gethostname()}!online").encode())
-        request = sock.recv(1024).decode()
-        if(request == 'Pkey'):
-            teacher_aes_key = key_exchange(sock)
-
+        message = sock.recv(1024).decode()
+        print(message)
         while True:
             try:
                 sock.send((fr"{socket.gethostname()}!KEEP_ALIVE").encode())
@@ -400,6 +282,5 @@ if (__name__=="__main__"):
         
 
             
-
 
 

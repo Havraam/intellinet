@@ -1,0 +1,21 @@
+@startuml student diagram 
+
+class HelpWindow {
+    +__init__()
+    -minimize_window()
+    +show()
+}
+
+class Screenshare {
+    +__init__()
+    +retreive_screenshot(conn)
+    +start_server(host, port)
+}
+
+HelpWindow --> tk.Tk
+Screenshare --> ctypes.windll
+Screenshare --> socket
+Screenshare --> mss
+Screenshare --> Thread
+
+@enduml
