@@ -68,19 +68,7 @@ class DesktopApp:
 
         self.computers = []  # Start with an empty list of computers
         self.icons = []
-
-        # Adding control buttons
-        # self.add_button = tk.Button(master, text="Add Computer", command=self.add_computer)
-        # self.add_button.pack()
-
-    def load_computers(self):
-        df = pd.read_csv("users.csv")
-        for value in df['COM_NAME']:
-            if value['Status'] == 'online':
-                computer_name = value
-                self.computers.append(value)
-                self.create_icons()
-
+        
     def add_computer(self, com_name):
         self.computers.append(com_name)
         self.create_icons()
@@ -102,12 +90,6 @@ class DesktopApp:
         for icon in self.icons:
             icon.frame.destroy()
         self.icons = []
-
-    def reposition_icons(self):
-        for i, icon in enumerate(self.icons):
-            x = (i % 6) * 150 + 25
-            y = (i // 6) * 150 + 25
-            icon.frame.place(x=x, y=y)
 
 
 
@@ -291,9 +273,6 @@ class ClientHandler:
             self.conn.send((f"Error: {error}").encode())
 
         
-        def start(self):
-            thread = Thread(target=self.handle_client)
-            thread.start()
 
 class Blackout:
     def __init__(self,target) -> None:
@@ -395,4 +374,6 @@ if (__name__ == "__main__"):
         conn, addr = sock.accept()
         print(f'Client connected IP: {addr}')
         client_handler = ClientHandler(conn, addr)
-        client_handler.start()  # Run client handler in a separate thread
+        handler_thread = Thread(target=client_handler.handle_client)
+        handler_thread.start()
+        
