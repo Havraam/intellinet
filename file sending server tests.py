@@ -31,6 +31,7 @@ while True:
             bytes_read += len(data)
     
     print(f'File {file_name} received successfully')
+    
     client_socket.close()
 
 

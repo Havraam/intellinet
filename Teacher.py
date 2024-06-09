@@ -13,6 +13,10 @@ from tkinter import Menu
 from tkinter import font   
 import tkinter.filedialog as filedialog
 import os 
+from win10toast import ToastNotifier
+
+
+
 
 class ComputerIcon:
     def __init__(self, master, x, y, computer_name):
@@ -138,7 +142,7 @@ class FileReciever:
 
     def receive_file(self):
         # Receive file info
-        file_name = self.conn.recv(1024).decode()
+        file_name = self.conn.recv(1024).decode('latin-1').replace('\0', '')
         file_size_bytes = self.conn.recv(4)
         file_size = int.from_bytes(file_size_bytes, byteorder='big')
 
@@ -152,6 +156,10 @@ class FileReciever:
                 f.write(data)
                 bytes_read += len(data)
         print(f'File {file_name} received successfully from {self.addr}')
+        # Show Windows notification
+        toaster = ToastNotifier()
+        toaster.show_toast("File Received", f"File '{file_name}' has been received and saved to {self.downloads_path}.", duration=5)
+
 
 class ScreenShare:
     # Set process to be DPI aware so that the resolution wont be dependant on screen scaling
@@ -389,7 +397,7 @@ def send_file_to_student(file_path, com_name):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((f"{com_name}.local", 5004))
 
-    file_name = os.path.basename(file_path)
+    file_name = os.path.basename(file_path).replace('\0', '')
     file_size = os.path.getsize(file_path)
 
     # Send file info

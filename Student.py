@@ -10,6 +10,7 @@ import ctypes
 import tkinter as tk
 import tkinter.filedialog as filedialog
 import os
+from win10toast import ToastNotifier
 
 
 class HelpWindow:
@@ -53,7 +54,7 @@ class FileReceiver:
             print(f'Connection from {addr}')
 
             # Receive file info
-            file_name = conn.recv(1024).decode('latin-1')
+            file_name = conn.recv(1024).decode('latin-1').replace('\0', '')
             file_size_bytes = conn.recv(4)
             file_size = int.from_bytes(file_size_bytes, byteorder='big')
             print(file_name)
@@ -68,6 +69,9 @@ class FileReceiver:
                     bytes_read += len(data)
 
             print(f'File {file_name} received successfully')
+            # Show Windows notification
+            toaster = ToastNotifier()
+            toaster.show_toast("File Received", f"File '{file_name}' has been received and saved to {self.downloads_path}.", duration=5)
             
 
 class Screenshare:
@@ -164,10 +168,10 @@ def send_file(file_path, host, port):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((host, port))
     
-    client_socket.send((fr"{socket.gethostname()}!SEND_FILE").encode())
+    client_socket.send((fr"{socket.gethostname()}!SEND_FILE").encode('latin-1'))
     response = client_socket.recv(1024).decode()
     if(response == "OK"):
-        file_name = os.path.basename(file_path)
+        file_name = os.path.basename(file_path).replace('\0', '')
         file_size = os.path.getsize(file_path)
 
         # Send file info
