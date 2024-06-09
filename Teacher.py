@@ -11,6 +11,8 @@ import time
 import tkinter as tk
 from tkinter import Menu
 from tkinter import font   
+import tkinter.filedialog as filedialog
+import os 
 
 class ComputerIcon:
     def __init__(self, master, x, y, computer_name):
@@ -29,11 +31,17 @@ class ComputerIcon:
         self.function_2_menu_item = self.menu.add_command(label="disable computer", command=self.activate_function_2, state='normal')
         # Initially, function 3 is grayed out
         self.function_3_menu_item = self.menu.add_command(label="enable computer", command=self.activate_function_3, state='disabled')
+        self.menu.add_command(label="Send File", command=self.send_file_dialog)
         
 
         self.menu.add_separator()
         self.menu.add_command(label="Remove", command=self.remove_icon)
 
+
+    def send_file_dialog(self):
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            send_file_to_student(file_path, self.computer_name)
 
     def show_context_menu(self, event):
         self.menu.post(event.x_root, event.y_root)
@@ -118,6 +126,32 @@ class Button:
     def is_clicked(self, pos):
         x, y = pos
         return (self.x <= x <= self.x + self.width) and (self.y <= y <= self.y + self.height)
+
+
+
+class FileReciever:
+    def __init__(self, conn, addr):
+        self.conn = conn
+        self.addr = addr
+        self.downloads_path = os.path.join(os.path.expanduser("~"), os.path.join("Downloads"))
+
+
+    def receive_file(self):
+        # Receive file info
+        file_name = self.conn.recv(1024).decode()
+        file_size_bytes = self.conn.recv(4)
+        file_size = int.from_bytes(file_size_bytes, byteorder='big')
+
+        # Receive file data
+        with open(os.path.join(self.downloads_path, file_name), 'wb') as f:
+            bytes_read = 0
+            while bytes_read < file_size:
+                data = self.conn.recv(1024)
+                if not data:
+                    break
+                f.write(data)
+                bytes_read += len(data)
+        print(f'File {file_name} received successfully from {self.addr}')
 
 class ScreenShare:
     # Set process to be DPI aware so that the resolution wont be dependant on screen scaling
@@ -263,8 +297,12 @@ class ClientHandler:
                 self.update_status(com_name, "online")
                 self.send_message("Welcome back into the system")
                 app.add_computer(com_name)
-            if ("KEEP_ALIVE" == request):
+            elif ("KEEP_ALIVE" == request):
                 pass
+            elif "SEND_FILE" == request:
+                self.send_message("OK")
+                file_sender = FileReciever(self.conn, self.addr)
+                file_sender.receive_file()
 
         def update_status(self, com_name, status):
             self.df.loc[self.df["COM_NAME"] == com_name, "Status"] = status
@@ -346,6 +384,27 @@ def create_popup_window(given_COMNAME):
 
     # Run the main loop to display the window
     window.mainloop()
+
+def send_file_to_student(file_path, com_name):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((f"{com_name}.local", 5004))
+
+    file_name = os.path.basename(file_path)
+    file_size = os.path.getsize(file_path)
+
+    # Send file info
+    sock.send(file_name.encode('latin-1'))
+    sock.send(file_size.to_bytes(4, byteorder='big'))
+
+    # Send file data
+    with open(file_path, 'rb') as f:
+        data = f.read(1024)
+        while data:
+            sock.send(data)
+            data = f.read(1024)
+
+    print(f'File {file_name} sent successfully to {com_name}')
+    sock.close()
 
 def activate_screensharing(com_name):
     screenshare = ScreenShare()

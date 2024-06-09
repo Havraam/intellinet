@@ -8,30 +8,67 @@ from zlib import compress
 from mss import mss
 import ctypes
 import tkinter as tk
-
-
+import tkinter.filedialog as filedialog
+import os
 
 
 class HelpWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Need help?")
-        self.root.geometry("200x100")
+        self.root.geometry("400x200")
 
         label = tk.Label(self.root, text="Need help?")
         label.pack(pady=10)
 
         call_help_button = tk.Button(self.root, text="Call Help", command=send_help_request)
         call_help_button.pack(pady=5)
-
+        send_file_button = tk.Button(self.root, text="Send File", command=self.send_file_dialog)
+        send_file_button.pack(pady=5)
         self.root.protocol("WM_DELETE_WINDOW", self.minimize_window)
 
     def minimize_window(self):
         self.root.iconify()
 
+    def send_file_dialog(self):
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            admin_addr = get_admin_addr()
+            send_file(file_path, admin_addr, 5003)
+
     def show(self):
         self.root.mainloop()
 
+class FileReceiver:
+    def __init__(self):
+        self.downloads_path = os.path.join(os.path.expanduser("~"), os.path.join("Downloads"))
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind((socket.gethostname() + ".local", 5004))
+        self.sock.listen(1)
+        print("File receiving server started.")
+
+    def receive_file(self):
+        while (True):
+            conn, addr = self.sock.accept()
+            print(f'Connection from {addr}')
+
+            # Receive file info
+            file_name = conn.recv(1024).decode('latin-1')
+            file_size_bytes = conn.recv(4)
+            file_size = int.from_bytes(file_size_bytes, byteorder='big')
+            print(file_name)
+            # Receive file data
+            with open(os.path.join(self.downloads_path, file_name), 'wb') as f:
+                bytes_read = 0
+                while bytes_read < file_size:
+                    data = conn.recv(1024)
+                    if not data:
+                        break
+                    f.write(data)
+                    bytes_read += len(data)
+
+            print(f'File {file_name} received successfully')
+            
 
 class Screenshare:
 # Set process to be DPI aware
@@ -123,6 +160,29 @@ def get_computer_name():
         
     setup_window.destroy()  # Close the setup_window after processing
 
+def send_file(file_path, host, port):
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((host, port))
+    
+    client_socket.send((fr"{socket.gethostname()}!SEND_FILE").encode())
+    response = client_socket.recv(1024).decode()
+    if(response == "OK"):
+        file_name = os.path.basename(file_path)
+        file_size = os.path.getsize(file_path)
+
+        # Send file info
+        client_socket.send(file_name.encode())
+        client_socket.send(file_size.to_bytes(4, byteorder='big'))
+
+        # Send file data
+        with open(file_path, 'rb') as f:
+            data = f.read(1024)
+            while data:
+                client_socket.send(data)
+                data = f.read(1024)
+
+        print(f'File {file_name} sent successfully')
+        client_socket.close()
 
 def send_help_request():
     f = open("config.txt", "r")
@@ -243,6 +303,9 @@ def start_services():
     time.sleep(1)
     help_window_thread = Thread(target=start_help_window)
     help_window_thread.start()
+    file_receiving_server = FileReceiver()
+    file_receiving_thread = Thread(target=file_receiving_server.receive_file)
+    file_receiving_thread.start()
 
 
 
