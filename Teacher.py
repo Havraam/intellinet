@@ -14,7 +14,7 @@ from tkinter import font
 import tkinter.filedialog as filedialog
 import os 
 from win10toast import ToastNotifier
-
+import login_page_test as login 
 
 
 
@@ -430,7 +430,8 @@ def run_GUI():
 if (__name__ == "__main__"):
     df = pd.read_csv("users.csv")
     df['Status'] = df['Status'].replace({'online': 'offline'})
-    df.to_csv("users.csv", index=False)  
+    df.to_csv("users.csv", index=False) 
+    login_window = login.LoginWindow()
     sock = socket.socket()
     sock.bind((fr"{socket.gethostname()}.local", 5003))
     sock.listen(5)

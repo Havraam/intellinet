@@ -11,7 +11,7 @@ import tkinter as tk
 import tkinter.filedialog as filedialog
 import os
 from win10toast import ToastNotifier
-
+import login_page_test as login
 
 class HelpWindow:
     def __init__(self):
@@ -341,6 +341,8 @@ def intial_admin_connect(admin_addr) :
 
 if (__name__=="__main__"):
     global admin_verified
+    login_window = login.LoginWindow()
+    print("hello")
     admin_addr= get_admin_addr()
     if (admin_addr==""):
         admin_setup()
