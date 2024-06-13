@@ -427,6 +427,21 @@ def run_GUI():
     app = DesktopApp(root)
     root.mainloop()
 
+
+def send_admin_message(df):
+    for com_name in df["COM_NAME"]:
+        try:
+            sock = socket.socket()
+            sock.connect((fr"{com_name}.local", 5005))
+            message = "IAMADMIN"
+            sock.send(message.encode())
+            print(f"Sent '{message}' to {com_name}")
+        except Exception as e:
+            print(f"Error sending message to {com_name}: {e}")
+        finally:
+            sock.close()
+
+
 if (__name__ == "__main__"):
     df = pd.read_csv("users.csv")
     df['Status'] = df['Status'].replace({'online': 'offline'})
@@ -435,6 +450,7 @@ if (__name__ == "__main__"):
     sock = socket.socket()
     sock.bind((fr"{socket.gethostname()}.local", 5003))
     sock.listen(5)
+    send_admin_message(df)
     print("Server started")
     gui_thread = Thread(target=run_GUI)
     gui_thread.daemon = True  

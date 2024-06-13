@@ -39,6 +39,9 @@ class HelpWindow:
 
     def show(self):
         self.root.mainloop()
+    
+    def destroy(self):
+        self.root.destroy()
 
 class FileReceiver:
     def __init__(self):
@@ -165,38 +168,45 @@ def get_computer_name():
     setup_window.destroy()  # Close the setup_window after processing
 
 def send_file(file_path, host, port):
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((host, port))
-    
-    client_socket.send((fr"{socket.gethostname()}!SEND_FILE").encode('latin-1'))
-    response = client_socket.recv(1024).decode()
-    if(response == "OK"):
-        file_name = os.path.basename(file_path).replace('\0', '')
-        file_size = os.path.getsize(file_path)
+    try:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((host, port))
+        
+        client_socket.send((fr"{socket.gethostname()}!SEND_FILE").encode('latin-1'))
+        response = client_socket.recv(1024).decode()
+        if(response == "OK"):
+            file_name = os.path.basename(file_path).replace('\0', '')
+            file_size = os.path.getsize(file_path)
 
-        # Send file info
-        client_socket.send(file_name.encode())
-        client_socket.send(file_size.to_bytes(4, byteorder='big'))
+            # Send file info
+            client_socket.send(file_name.encode())
+            client_socket.send(file_size.to_bytes(4, byteorder='big'))
 
-        # Send file data
-        with open(file_path, 'rb') as f:
-            data = f.read(1024)
-            while data:
-                client_socket.send(data)
+            # Send file data
+            with open(file_path, 'rb') as f:
                 data = f.read(1024)
+                while data:
+                    client_socket.send(data)
+                    data = f.read(1024)
 
-        print(f'File {file_name} sent successfully')
-        client_socket.close()
+            print(f'File {file_name} sent successfully')
+            client_socket.close()
+    except:
+        print("file sending connection failed")
+
 
 def send_help_request():
-    f = open("config.txt", "r")
-    admin_addr=f.read()
-    sock = socket.socket()
-    sock.connect((fr"{admin_addr}.local",5001))
-    com_name = socket.gethostname()
-    request = (fr"{com_name}!HELPME").encode()
-    sock.send(request)
-    print("help request sent")
+    try:
+        f = open("config.txt", "r")
+        admin_addr=f.read()
+        sock = socket.socket()
+        sock.connect((fr"{admin_addr}.local",5001))
+        com_name = socket.gethostname()
+        request = (fr"{com_name}!HELPME").encode()
+        sock.send(request)
+        print("help request sent")
+    except:
+        print("help request connection failed")
 
 def admin_setup():
     global setup_window
@@ -230,7 +240,11 @@ def admin_unavailable():
 
     ok_button = Button(root, text="OK", command=root.destroy)
     ok_button.pack()
+    if help_window:
+        help_window.root.withdraw() 
 
+    recconnect_thread = Thread(target=listen_for_admin_reconnection)
+    recconnect_thread.start()
     root.mainloop()
 
 def start_screensharing_server():
@@ -291,6 +305,7 @@ def get_admin_addr ():
         print("error reading configuration file")
 
 def start_help_window():
+    global help_window
     help_window = HelpWindow()
     help_window.show()
 
@@ -335,7 +350,27 @@ def intial_admin_connect(admin_addr) :
         print("admin not available right now , try again later")
         admin_unavailable()
 
+def listen_for_admin_reconnection():
+    admin_addr = get_admin_addr()
+    if admin_addr:
+        sock = socket.socket()
+        sock.bind((fr"{socket.gethostname()}.local", 5005))
+        sock.listen(5)
+        print('Listening for admin connection...')
 
+        while True:
+            print("Waiting for admin connection...")
+            conn, addr = sock.accept()
+            print('connected:', addr)
+            message = conn.recv(1024).decode()
+            if(message == "IAMADMIN"):
+                print("admin reconnected")
+                help_window.root.deiconify()  # Show the help_window again
+
+            conn.close()
+            break
+    else:
+        print("Error: Unable to get admin address")
     
     
 
