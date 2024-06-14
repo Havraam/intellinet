@@ -11,13 +11,32 @@ import tkinter as tk
 import tkinter.filedialog as filedialog
 import os
 from win10toast import ToastNotifier
-import login_page_test as login
+#import login_page_test as login
+import socket
+stop_event = Event()
+
+
+
+def get_my_active_interface_ip():
+    # create an datagram socket (single UDP request and response, then close)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # connect to an address on the internet, that's likely to always be up 
+    # (the Google primary DNS is a good bet)
+    sock.connect(("8.8.8.8", 80))
+    # after connecting, the socket will have the IP in its address
+    ip_addr = sock.getsockname()[0]
+    # done
+    sock.close()
+
+    return ip_addr
 
 class HelpWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Need help?")
         self.root.geometry("400x200")
+        self.root.bind("<<AdminReconnected>>", self.handle_admin_reconnected)
+
 
         label = tk.Label(self.root, text="Need help?")
         label.pack(pady=10)
@@ -27,6 +46,8 @@ class HelpWindow:
         send_file_button = tk.Button(self.root, text="Send File", command=self.send_file_dialog)
         send_file_button.pack(pady=5)
         self.root.protocol("WM_DELETE_WINDOW", self.minimize_window)
+    def handle_admin_reconnected(self, event):
+            self.root.deiconify()
 
     def minimize_window(self):
         self.root.iconify()
@@ -35,19 +56,16 @@ class HelpWindow:
         file_path = filedialog.askopenfilename()
         if file_path:
             admin_addr = get_admin_addr()
-            send_file(file_path, admin_addr, 5003)
+            send_file(file_path, socket.gethostbyname(admin_addr), 5003)
 
     def show(self):
         self.root.mainloop()
-    
-    def destroy(self):
-        self.root.destroy()
 
 class FileReceiver:
     def __init__(self):
         self.downloads_path = os.path.join(os.path.expanduser("~"), os.path.join("Downloads"))
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind((socket.gethostname() + ".local", 5004))
+        self.sock.bind((get_my_active_interface_ip(), 5004))
         self.sock.listen(1)
         print("File receiving server started.")
 
@@ -115,7 +133,7 @@ class Screenshare:
                 print("connection closed")
 
 
-    def start_server(self,host=fr'{socket.gethostname()}.local', port=5000):    
+    def start_server(self,host=get_my_active_interface_ip(), port=5000):    
         print(socket.gethostname())
         sock = socket.socket()
         sock.bind((host, port))
@@ -147,7 +165,7 @@ def get_computer_name():
     f = open("config.txt", "w")   
     try: 
         sock = socket.socket()
-        sock.connect((fr"{computer_name}.local",5003))
+        sock.connect((socket.gethostbyname(computer_name),5003))
         message = ("n!ADMIN?").encode()
         sock.send(message)
         response = sock.recv(1024).decode() 
@@ -168,45 +186,38 @@ def get_computer_name():
     setup_window.destroy()  # Close the setup_window after processing
 
 def send_file(file_path, host, port):
-    try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((host, port))
-        
-        client_socket.send((fr"{socket.gethostname()}!SEND_FILE").encode('latin-1'))
-        response = client_socket.recv(1024).decode()
-        if(response == "OK"):
-            file_name = os.path.basename(file_path).replace('\0', '')
-            file_size = os.path.getsize(file_path)
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((host, port))
+    
+    client_socket.send((fr"{socket.gethostname()}!SEND_FILE").encode('latin-1'))
+    response = client_socket.recv(1024).decode()
+    if(response == "OK"):
+        file_name = os.path.basename(file_path).replace('\0', '')
+        file_size = os.path.getsize(file_path)
 
-            # Send file info
-            client_socket.send(file_name.encode())
-            client_socket.send(file_size.to_bytes(4, byteorder='big'))
+        # Send file info
+        client_socket.send(file_name.encode())
+        client_socket.send(file_size.to_bytes(4, byteorder='big'))
 
-            # Send file data
-            with open(file_path, 'rb') as f:
+        # Send file data
+        with open(file_path, 'rb') as f:
+            data = f.read(1024)
+            while data:
+                client_socket.send(data)
                 data = f.read(1024)
-                while data:
-                    client_socket.send(data)
-                    data = f.read(1024)
 
-            print(f'File {file_name} sent successfully')
-            client_socket.close()
-    except:
-        print("file sending connection failed")
-
+        print(f'File {file_name} sent successfully')
+        client_socket.close()
 
 def send_help_request():
-    try:
-        f = open("config.txt", "r")
-        admin_addr=f.read()
-        sock = socket.socket()
-        sock.connect((fr"{admin_addr}.local",5001))
-        com_name = socket.gethostname()
-        request = (fr"{com_name}!HELPME").encode()
-        sock.send(request)
-        print("help request sent")
-    except:
-        print("help request connection failed")
+    f = open("config.txt", "r")
+    admin_addr=f.read()
+    sock = socket.socket()
+    sock.connect((socket.gethostbyname(admin_addr),5001))
+    com_name = socket.gethostname()
+    request = (fr"{com_name}!HELPME").encode()
+    sock.send(request)
+    print("help request sent")
 
 def admin_setup():
     global setup_window
@@ -229,24 +240,6 @@ def admin_setup():
     setup_window.mainloop()
 
 
-def admin_unavailable():
-    global root
-    root = Tk()
-    root.title("Admin Unavailable")
-    root.geometry("300x100")  # Adjust window size as needed
-
-    label = Label(root, text="Admin unavailable now, please try again later.")
-    label.pack()
-
-    ok_button = Button(root, text="OK", command=root.destroy)
-    ok_button.pack()
-    if help_window:
-        help_window.root.withdraw() 
-
-    recconnect_thread = Thread(target=listen_for_admin_reconnection)
-    recconnect_thread.start()
-    root.mainloop()
-
 def start_screensharing_server():
     screenshare = Screenshare()
     screenshare.start_server()
@@ -258,7 +251,7 @@ def start_blackout_server():
     BlockInput = ctypes.windll.user32.BlockInput
     #starting up the server
     sock = socket.socket()
-    sock.bind((fr"{socket.gethostname()}.local",5002))
+    sock.bind((get_my_active_interface_ip(),5002))
     sock.listen(5)
     print('blackout server started.')
     while 'connected':
@@ -311,6 +304,7 @@ def start_help_window():
 
 
 def start_services():
+    global keep_alive_thread
     admin_addr = get_admin_addr()
     print(admin_addr)
     keep_alive_thread = Thread(target=intial_admin_connect , args = (admin_addr,))
@@ -335,9 +329,9 @@ def start_services():
 def intial_admin_connect(admin_addr) :
     try:
         sock = socket.socket()
-        sock.connect((fr"{admin_addr}.local",5003))
+        sock.settimeout(5)
+        sock.connect((socket.gethostbyname(admin_addr),5003))
         sock.send((fr"{socket.gethostname()}!online").encode())
-
         while True:
             try:
                 sock.send((fr"{socket.gethostname()}!KEEP_ALIVE").encode())
@@ -349,35 +343,64 @@ def intial_admin_connect(admin_addr) :
     except:
         print("admin not available right now , try again later")
         admin_unavailable()
+    finally:
+        try:
+            sock.close()
+        except:
+            print("error closing admin connection")
+        
 
-def listen_for_admin_reconnection():
-    admin_addr = get_admin_addr()
-    if admin_addr:
-        sock = socket.socket()
-        sock.bind((fr"{socket.gethostname()}.local", 5005))
-        sock.listen(5)
-        print('Listening for admin connection...')
 
-        while True:
-            print("Waiting for admin connection...")
-            conn, addr = sock.accept()
-            print('connected:', addr)
-            message = conn.recv(1024).decode()
-            if(message == "IAMADMIN"):
-                print("admin reconnected")
-                help_window.root.deiconify()  # Show the help_window again
+def admin_unavailable():
+    global root
+    root = Tk()
+    root.title("Admin Unavailable")
+    root.geometry("300x100")  # Adjust window size as needed
 
-            conn.close()
-            break
-    else:
-        print("Error: Unable to get admin address")
+    label = Label(root, text="Admin unavailable now, please try again later.")
+    label.pack()
+
+    ok_button = Button(root, text="OK", command=root.destroy)
+    ok_button.pack()
+    if help_window:
+        help_window.root.withdraw() 
+
+    recconnect_thread = Thread(target=listen_for_admin_reconnection)
+    recconnect_thread.start()
+    root.mainloop()
+
+
+def listen_for_admin_reconnection(): 
+    global keep_alive_thread
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((get_my_active_interface_ip(), 5005))
+    sock.listen(5)
+    print('Listening for admin connection...')
+    while True:
+        print("Waiting for admin connection...")
+        conn, addr = sock.accept()
+        print('connected:', addr)
+        message = conn.recv(1024).decode()
+        if(message == "IAMADMIN"):
+            print("admin reconnected")
+            conn.send("OK".encode())
+            help_window.root.event_generate("<<AdminReconnected>>") # Show the help_window again
+            admin_addr = get_admin_addr()
+            keep_alive_thread = Thread(target=intial_admin_connect, args=(admin_addr,))
+            keep_alive_thread.start()
+            print("keep_alive_thread started")
+
+        
+        conn.close()
+        break
+
+
     
     
 
 if (__name__=="__main__"):
     global admin_verified
-    login_window = login.LoginWindow()
-    print("hello")
+    #login_window = login.LoginWindow()
     admin_addr= get_admin_addr()
     if (admin_addr==""):
         admin_setup()
@@ -389,5 +412,4 @@ if (__name__=="__main__"):
         
 
             
-
 

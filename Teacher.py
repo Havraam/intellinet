@@ -16,7 +16,18 @@ import os
 from win10toast import ToastNotifier
 import login_page_test as login 
 
+def get_my_active_interface_ip():
+    # create an datagram socket (single UDP request and response, then close)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # connect to an address on the internet, that's likely to always be up 
+    # (the Google primary DNS is a good bet)
+    sock.connect(("8.8.8.8", 80))
+    # after connecting, the socket will have the IP in its address
+    ip_addr = sock.getsockname()[0]
+    # done
+    sock.close()
 
+    return ip_addr
 
 class ComputerIcon:
     def __init__(self, master, x, y, computer_name):
@@ -197,9 +208,8 @@ class ScreenShare:
         button = Button(self.WIDTH - button_width - 10, self.HEIGHT - button_height - 10, button_width, button_height, button_text, button_color, font_size)
 
         watching = True
-        host_name = host+".local"
         sock = socket.socket()
-        sock.connect((host_name, port))
+        sock.connect((socket.gethostbyname(host), port))
         share_res = sock.recv(1024).decode() #reciving target computer's resolution
         share_width = int((share_res.split(","))[0]) #spliting and turning share res to integer 
         share_height = int((share_res.split(","))[1])
@@ -329,7 +339,7 @@ class Blackout:
         self.active = False
         self.sock = socket.socket()
         self.target = target
-        self.sock.connect((fr"{target}.local",5002))
+        self.sock.connect((socket.gethostbyname(target),5002))
         
 
     def start_blackout(self):
@@ -356,7 +366,7 @@ def global_start_blackout(computer_name):
 
 def help_request_handler():
     sock = socket.socket()
-    sock.bind((fr"{socket.gethostname()}.local", 5001))
+    sock.bind((get_my_active_interface_ip(), 5001))
     sock.listen(50)
     while True:
         conn, addr = sock.accept()
@@ -395,7 +405,7 @@ def create_popup_window(given_COMNAME):
 
 def send_file_to_student(file_path, com_name):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((f"{com_name}.local", 5004))
+    sock.connect((socket.gethostbyname(com_name), 5004))
 
     file_name = os.path.basename(file_path).replace('\0', '')
     file_size = os.path.getsize(file_path)
@@ -428,30 +438,39 @@ def run_GUI():
     root.mainloop()
 
 
-def send_admin_message(df):
+def send_IAMALIVE():
+    df = pd.read_csv("users.csv")
     for com_name in df["COM_NAME"]:
-        try:
-            sock = socket.socket()
-            sock.connect((fr"{com_name}.local", 5005))
-            message = "IAMADMIN"
-            sock.send(message.encode())
-            print(f"Sent '{message}' to {com_name}")
-        except Exception as e:
-            print(f"Error sending message to {com_name}: {e}")
-        finally:
-            sock.close()
+        iamalive_thread = Thread(target=thread_IAMALIVES, args=(com_name, 3))
+        iamalive_thread.daemon = True
+        iamalive_thread.start()
 
+def thread_IAMALIVES(com_name , timeout):
+    print(com_name)
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(fr"{com_name}.local")
+        sock.settimeout(timeout)
+        sock.connect((socket.gethostbyname(com_name), 5005))
+        message = "IAMADMIN"
+        sock.send(message.encode())
+        confirmation = sock.recv(1024).decode()
+        print(f"Sent '{message}' to {com_name}")
+    except Exception as e:
+        print(f"Error sending message to {com_name}: {e}")
+    finally:
+        sock.close()
 
 if (__name__ == "__main__"):
     df = pd.read_csv("users.csv")
     df['Status'] = df['Status'].replace({'online': 'offline'})
     df.to_csv("users.csv", index=False) 
-    login_window = login.LoginWindow()
+    #login_window = login.LoginWindow()
     sock = socket.socket()
-    sock.bind((fr"{socket.gethostname()}.local", 5003))
+    sock.bind((get_my_active_interface_ip(), 5003))
     sock.listen(5)
-    send_admin_message(df)
     print("Server started")
+    send_IAMALIVE()
     gui_thread = Thread(target=run_GUI)
     gui_thread.daemon = True  
     gui_thread.start()
