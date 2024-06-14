@@ -29,14 +29,16 @@ def get_my_active_interface_ip():
 
     return ip_addr
 
+
+
 class ComputerIcon:
-    def __init__(self, master, x, y, computer_name):
+    def __init__(self, master, color, x, y, computer_name):
         self.master = master
         self.computer_name = computer_name
         self.frame = tk.Frame(master, width=100, height=100)
         self.frame.place(x=x, y=y)
 
-        self.icon = tk.Label(self.frame, text=computer_name, bg="lightblue", width=12, height=6)
+        self.icon = tk.Label(self.frame, text=computer_name, bg=color, width=12, height=6)
         self.icon.pack()
 
         self.icon.bind("<Button-3>", self.show_context_menu)
@@ -82,6 +84,33 @@ class ComputerIcon:
         self.frame.destroy()
         self.master.remove_computer(self.computer_name)
 
+class GlobalComputerIcon(ComputerIcon):
+    def __init__(self, master, x, y):
+        super().__init__(master, "tomato",x, y, "Global Control")
+        self.icon.pack()
+        self.menu.entryconfig("watch screen", label="Share Your Screen", command=self.share_your_screen)
+        self.menu.entryconfig("disable computer", label="Disable All", command=self.disable_all)
+        self.menu.entryconfig("enable computer", label="Enable All", command=self.enable_all)
+        self.menu.entryconfig("Send File", label="Send to All", command=self.send_to_all)
+
+    def share_your_screen(self):
+        # Implement the logic to share your screen
+        pass
+
+    def disable_all(self):
+        global_start_wide_blackout()
+        self.menu.entryconfig("Disable All",state = 'disabled')
+        self.menu.entryconfig("Enable All",state = 'normal')
+
+    def enable_all(self):
+        global_stop_wide_blackout()
+        self.menu.entryconfig("Disable all",state = 'normal')
+        self.menu.entryconfig("Enable All",state = 'disabled')
+
+    def send_to_all(self):
+        # Implement the logic to send a file to all connected computers
+        pass
+
 class DesktopApp:
     def __init__(self, master):
         self.master = master
@@ -96,10 +125,17 @@ class DesktopApp:
 
         self.computers = []  # Start with an empty list of computers
         self.icons = []
-        
+        self.create_global_icon()
+    
     def add_computer(self, com_name):
         self.computers.append(com_name)
         self.create_icons()
+
+    def create_global_icon(self):
+        x = 25  # Adjust the position as needed
+        y = 25
+        global_icon = GlobalComputerIcon(self.master, x, y)
+        self.icons.append(global_icon)
 
     def remove_computer(self, computer_name):
         self.computers = [computer for computer in self.computers if computer != computer_name]
@@ -108,16 +144,18 @@ class DesktopApp:
 
     def create_icons(self):
         self.clear_icons()
-        for i, computer in enumerate(self.computers):
+        self.create_global_icon()
+        for i, computer in enumerate(self.computers, start=1):
             x = (i % 6) * 150 + 25  # 6 icons per row
             y = (i // 6) * 150 + 25  # New row every 6 icons
-            icon = ComputerIcon(self.master, x, y, computer)
+            icon = ComputerIcon(self.master,"lightblue" ,x, y, computer)
             self.icons.append(icon)
 
     def clear_icons(self):
         for icon in self.icons:
             icon.frame.destroy()
         self.icons = []
+
 
 
 
@@ -293,7 +331,6 @@ class ClientHandler:
                 except IndexError:
                     print ("index error!!!!")
                     
-
         
         
                 
@@ -363,6 +400,23 @@ def global_start_blackout(computer_name):
     blackout_thread = Thread(target=blackout.start_blackout)
     blackout_thread.daemon = True
     blackout_thread.start()
+
+
+def global_start_wide_blackout():
+    global blackouts
+    blackouts = []
+    df = pd.read_csv("users.csv")
+    for com_name in df["COM_NAME"]:
+        if df.loc[df["COM_NAME"] == com_name, "Status"].values[0] == "online":
+            blackout = Blackout(com_name)
+            blackout_thread = Thread(target=blackout.start_blackout)
+            blackout_thread.daemon = True
+            blackout_thread.start()
+            blackouts.append(blackout)
+
+def global_stop_wide_blackout():
+    for blackout in blackouts:
+        blackout.stop_blackout()
 
 def help_request_handler():
     sock = socket.socket()
@@ -455,6 +509,8 @@ def thread_IAMALIVES(com_name , timeout):
         message = "IAMADMIN"
         sock.send(message.encode())
         confirmation = sock.recv(1024).decode()
+        if confirmation == "OK":
+            client_handler.update_status(com_name, "online")
         print(f"Sent '{message}' to {com_name}")
     except Exception as e:
         print(f"Error sending message to {com_name}: {e}")
