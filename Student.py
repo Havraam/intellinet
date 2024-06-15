@@ -73,12 +73,20 @@ class FileReceiver:
         while (True):
             conn, addr = self.sock.accept()
             print(f'Connection from {addr}')
-
+            file_name_bytes = b''
+            while True:
+                byte = conn.recv(1)
+                if byte == b'\0':
+                    break
+                file_name_bytes += byte
             # Receive file info
-            file_name = conn.recv(1024).decode('latin-1').replace('\0', '')
-            file_size_bytes = conn.recv(4)
+            file_name = file_name_bytes.decode('utf-8')
+            file_size_bytes = conn.recv(8)
             file_size = int.from_bytes(file_size_bytes, byteorder='big')
             print(file_name)
+            # Ensure the downloads path exists
+            os.makedirs(self.downloads_path, exist_ok=True)
+
             # Receive file data
             with open(os.path.join(self.downloads_path, file_name), 'wb') as f:
                 bytes_read = 0
@@ -196,14 +204,14 @@ def send_file(file_path, host, port):
         file_size = os.path.getsize(file_path)
 
         # Send file info
-        client_socket.send(file_name.encode())
-        client_socket.send(file_size.to_bytes(4, byteorder='big'))
+        client_socket.sendall(file_name.encode('utf-8') + b'\0')
+        client_socket.sendall(file_size.to_bytes(8, byteorder='big'))
 
         # Send file data
         with open(file_path, 'rb') as f:
             data = f.read(1024)
             while data:
-                client_socket.send(data)
+                client_socket.sendall(data)
                 data = f.read(1024)
 
         print(f'File {file_name} sent successfully')

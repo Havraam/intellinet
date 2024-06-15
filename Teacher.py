@@ -91,7 +91,12 @@ class GlobalComputerIcon(ComputerIcon):
         self.menu.entryconfig("watch screen", label="Share Your Screen", command=self.share_your_screen)
         self.menu.entryconfig("disable computer", label="Disable All", command=self.disable_all)
         self.menu.entryconfig("enable computer", label="Enable All", command=self.enable_all)
-        self.menu.entryconfig("Send File", label="Send to All", command=self.send_to_all)
+        self.menu.entryconfig("Send File", label="Send to All", command=self.send_file_to_all_dialog)
+
+    def send_file_to_all_dialog(self):
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            send_file_to_all(file_path)
 
     def share_your_screen(self):
         # Implement the logic to share your screen
@@ -104,7 +109,7 @@ class GlobalComputerIcon(ComputerIcon):
 
     def enable_all(self):
         global_stop_wide_blackout()
-        self.menu.entryconfig("Disable all",state = 'normal')
+        self.menu.entryconfig("Disable All",state = 'normal')
         self.menu.entryconfig("Enable All",state = 'disabled')
 
     def send_to_all(self):
@@ -191,11 +196,20 @@ class FileReciever:
 
     def receive_file(self):
         # Receive file info
-        file_name = self.conn.recv(1024).decode('latin-1').replace('\0', '')
-        file_size_bytes = self.conn.recv(4)
+        file_name_bytes = b''
+        while True:
+            byte = conn.recv(1)
+            if byte == b'\0':
+                break
+            file_name_bytes += byte
+        file_name = file_name_bytes.decode('utf-8')
+        file_size_bytes = self.conn.recv(8)
         file_size = int.from_bytes(file_size_bytes, byteorder='big')
-
+        print(file_name)
         # Receive file data
+        # Ensure the downloads path exists
+        os.makedirs(self.downloads_path, exist_ok=True)
+        
         with open(os.path.join(self.downloads_path, file_name), 'wb') as f:
             bytes_read = 0
             while bytes_read < file_size:
@@ -356,8 +370,8 @@ class ClientHandler:
                 pass
             elif "SEND_FILE" == request:
                 self.send_message("OK")
-                file_sender = FileReciever(self.conn, self.addr)
-                file_sender.receive_file()
+                file_reciever = FileReciever(self.conn, self.addr)
+                file_reciever.receive_file()
 
         def update_status(self, com_name, status):
             self.df.loc[self.df["COM_NAME"] == com_name, "Status"] = status
@@ -465,18 +479,25 @@ def send_file_to_student(file_path, com_name):
     file_size = os.path.getsize(file_path)
 
     # Send file info
-    sock.send(file_name.encode('latin-1'))
-    sock.send(file_size.to_bytes(4, byteorder='big'))
+    sock.sendall(file_name.encode('utf-8') + b'\0')
+    sock.sendall(file_size.to_bytes(8, byteorder='big'))
 
     # Send file data
     with open(file_path, 'rb') as f:
         data = f.read(1024)
         while data:
-            sock.send(data)
+            sock.sendall(data)
             data = f.read(1024)
 
     print(f'File {file_name} sent successfully to {com_name}')
     sock.close()
+
+def send_file_to_all(file_path):
+    df = pd.read_csv("users.csv")
+    for com_name in df["COM_NAME"]:
+        if df.loc[df["COM_NAME"] == com_name, "Status"].values[0] == "online":
+            send_file_to_student(file_path, com_name)
+
 
 def activate_screensharing(com_name):
     screenshare = ScreenShare()
