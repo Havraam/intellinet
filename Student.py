@@ -11,7 +11,7 @@ import tkinter as tk
 import tkinter.filedialog as filedialog
 import os
 from win10toast import ToastNotifier
-#import login_page_test as login
+import login_page_test as login
 import socket
 import class_assignment_server as task_server
 
@@ -226,7 +226,7 @@ def send_help_request():
     sock = socket.socket()
     sock.connect((socket.gethostbyname(admin_addr),5001))
     com_name = socket.gethostname()
-    request = (fr"{com_name}!HELPME").encode()
+    request = (fr"{com_name}!HELPME?{login_window.get_display_name()}").encode()
     sock.send(request)
     print("help request sent")
 
@@ -344,7 +344,7 @@ def intial_admin_connect(admin_addr) :
         sock = socket.socket()
         sock.settimeout(5)
         sock.connect((socket.gethostbyname(admin_addr),5003))
-        sock.send((fr"{socket.gethostname()}!online").encode())
+        sock.send((fr"{socket.gethostname()}!online?{login_window.get_display_name()}").encode())
         while True:
             try:
                 sock.send((fr"{socket.gethostname()}!KEEP_ALIVE").encode())
@@ -413,7 +413,7 @@ def listen_for_admin_reconnection():
 
 if (__name__=="__main__"):
     global admin_verified
-    #login_window = login.LoginWindow()
+    login_window = login.LoginWindow()
     admin_addr= get_admin_addr()
     if (admin_addr==""):
         admin_setup()

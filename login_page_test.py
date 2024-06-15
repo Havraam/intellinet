@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 
 # Initialize the Firebase app
-cred = credentials.Certificate(fr"C:\Users\erele\Desktop\intelinet-61b65-firebase-adminsdk-k8fbq-a7876eedb9.json")
+cred = credentials.Certificate(fr"intelinet-61b65-firebase-adminsdk-k8fbq-a7876eedb9.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://intelinet-61b65-default-rtdb.europe-west1.firebasedatabase.app/'
 })

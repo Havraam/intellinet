@@ -16,6 +16,7 @@ import os
 from win10toast import ToastNotifier
 import login_page_test as login 
 import class_assignment_client as task_client
+import datetime
 
 def get_my_active_interface_ip():
     # create an datagram socket (single UDP request and response, then close)
@@ -33,13 +34,14 @@ def get_my_active_interface_ip():
 
 
 class ComputerIcon:
-    def __init__(self, master, color, x, y, computer_name):
+    def __init__(self, master, color, x, y, computer_name,display_name):
         self.master = master
         self.computer_name = computer_name
+        self.display_name = display_name
         self.frame = tk.Frame(master, width=100, height=100)
         self.frame.place(x=x, y=y)
 
-        self.icon = tk.Label(self.frame, text=computer_name, bg=color, width=12, height=6)
+        self.icon = tk.Label(self.frame, text=self.display_name, bg=color, width=12, height=6)
         self.icon.pack()
 
         self.icon.bind("<Button-3>", self.show_context_menu)
@@ -87,21 +89,21 @@ class ComputerIcon:
 
 class GlobalComputerIcon(ComputerIcon):
     def __init__(self, master, x, y):
-        super().__init__(master, "tomato",x, y, "Global Control")
+        super().__init__(master, "tomato",x, y, "Global Control", "Global Control")
         self.icon.pack()
-        self.menu.entryconfig("watch screen", label="Share Your Screen", command=self.share_your_screen)
         self.menu.entryconfig("disable computer", label="Disable All", command=self.disable_all)
         self.menu.entryconfig("enable computer", label="Enable All", command=self.enable_all)
         self.menu.entryconfig("Send File", label="Send to All", command=self.send_file_to_all_dialog)
+    
+    def show_context_menu(self, event):
+        # Remove the "watch screen" menu item from the context menu
+        self.menu.delete("watch screen")
+        self.menu.post(event.x_root, event.y_root)
 
     def send_file_to_all_dialog(self):
         file_path = filedialog.askopenfilename()
         if file_path:
             send_file_to_all(file_path)
-
-    def share_your_screen(self):
-        # Implement the logic to share your screen
-        pass
 
     def disable_all(self):
         global_start_wide_blackout()
@@ -113,9 +115,6 @@ class GlobalComputerIcon(ComputerIcon):
         self.menu.entryconfig("Disable All",state = 'normal')
         self.menu.entryconfig("Enable All",state = 'disabled')
 
-    def send_to_all(self):
-        # Implement the logic to send a file to all connected computers
-        pass
 
 class DesktopApp:
     def __init__(self, master):
@@ -124,11 +123,22 @@ class DesktopApp:
         master.geometry("1000x800")  # Adjusted to fit more icons
         self.master.protocol("WM_DELETE_WINDOW", self.minimize_window)
 
+        current_time = datetime.datetime.now()
+        if current_time.hour < 12:
+            greeting = "Good morning"
+        elif current_time.hour < 18:
+            greeting = "Good afternoon"
+        else:
+            greeting = "Good evening"
+
+        
         create_assignment_button = tk.Button(master, text="Create Assignment", command=lambda: task_client.show_assignment_popup(master))
         create_assignment_button.place(relx=0.5, rely=0.95, anchor="center")
 
         large_font = font.Font(family="Helvetica", size=20, weight="bold")
-
+        # Create the greeting label
+        self.greeting_label = tk.Label(master, text=f"{greeting}, {login_window.get_display_name()}", font=large_font)
+        self.greeting_label.place(x=10, y=10) 
         # Create the "Hello" label in the top right corner with larger text
         self.hello_label = tk.Label(master, text=socket.gethostname(), font=large_font)
         self.hello_label.place(x=775, y=10) 
@@ -137,8 +147,8 @@ class DesktopApp:
         self.icons = []
         self.create_global_icon()
     
-    def add_computer(self, com_name):
-        self.computers.append(com_name)
+    def add_computer(self, com_name,display_name):
+        self.computers.append((com_name,display_name))
         self.create_icons()
     
     def minimize_window(self):
@@ -146,12 +156,12 @@ class DesktopApp:
     
     def create_global_icon(self):
         x = 25  # Adjust the position as needed
-        y = 25
+        y = 50
         global_icon = GlobalComputerIcon(self.master, x, y)
         self.icons.append(global_icon)
 
     def remove_computer(self, computer_name):
-        self.computers = [computer for computer in self.computers if computer != computer_name]
+        self.computers = [computer for computer in self.computers if computer[0] != computer_name]
         self.create_icons()
 
 
@@ -160,8 +170,8 @@ class DesktopApp:
         self.create_global_icon()
         for i, computer in enumerate(self.computers, start=1):
             x = (i % 6) * 150 + 25  # 6 icons per row
-            y = (i // 6) * 150 + 25  # New row every 6 icons
-            icon = ComputerIcon(self.master,"lightblue" ,x, y, computer)
+            y = (i // 6) * 150 + 50  # New row every 6 icons
+            icon = ComputerIcon(self.master,"lightblue" ,x, y, computer[0],computer[1])
             self.icons.append(icon)
 
     def clear_icons(self):
@@ -370,11 +380,12 @@ class ClientHandler:
 
         def handle_user_request(self, com_name ,request):
             print(request)
-            if ("online" == request):
+            if ("online" in request):
+                request = request.split("?")
                 self.update_status(com_name, "online")
                 self.send_message("Welcome back into the system")
-                app.add_computer(com_name)
-            elif ("KEEP_ALIVE" == request):
+                app.add_computer(com_name,request[1])
+            elif ("KEEP_ALIVE" in request):
                 pass
             elif "SEND_FILE" == request:
                 self.send_message("OK")
@@ -451,19 +462,24 @@ def help_request_handler():
         request = request.split('!')
         com_name = request[0]
         request = request[1]
+        request = request.split('?')
+        print (request)
+        display_name = request[1]
+        request = request[0]
+        print(display_name)
         if (request == "HELPME"):
-            popup_window_thread = Thread(target=create_popup_window , args=(com_name,))
+            popup_window_thread = Thread(target=create_popup_window , args=(display_name,))
             popup_window_thread.start()
 
 
 
-def create_popup_window(given_COMNAME):
+def create_popup_window(display_name):
     # Create the main window
     window = tk.Tk()
     window.title("Help Needed")
 
     # Create the message label
-    message = tk.Label(window, text=f"Help is needed at {given_COMNAME}")
+    message = tk.Label(window, text=f"{display_name} needs help")
     message.pack(pady=10)
 
     # Function to close the window
@@ -550,7 +566,7 @@ if (__name__ == "__main__"):
     df = pd.read_csv("users.csv")
     df['Status'] = df['Status'].replace({'online': 'offline'})
     df.to_csv("users.csv", index=False) 
-    #login_window = login.LoginWindow()
+    login_window = login.LoginWindow()
     sock = socket.socket()
     sock.bind((get_my_active_interface_ip(), 5003))
     sock.listen(5)
