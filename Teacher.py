@@ -15,6 +15,7 @@ import tkinter.filedialog as filedialog
 import os 
 from win10toast import ToastNotifier
 import login_page_test as login 
+import class_assignment_client as task_client
 
 def get_my_active_interface_ip():
     # create an datagram socket (single UDP request and response, then close)
@@ -121,6 +122,10 @@ class DesktopApp:
         self.master = master
         master.title("intelinet")
         master.geometry("1000x800")  # Adjusted to fit more icons
+        self.master.protocol("WM_DELETE_WINDOW", self.minimize_window)
+
+        create_assignment_button = tk.Button(master, text="Create Assignment", command=lambda: task_client.show_assignment_popup(master))
+        create_assignment_button.place(relx=0.5, rely=0.95, anchor="center")
 
         large_font = font.Font(family="Helvetica", size=20, weight="bold")
 
@@ -135,7 +140,10 @@ class DesktopApp:
     def add_computer(self, com_name):
         self.computers.append(com_name)
         self.create_icons()
-
+    
+    def minimize_window(self):
+        self.master.iconify()
+    
     def create_global_icon(self):
         x = 25  # Adjust the position as needed
         y = 25

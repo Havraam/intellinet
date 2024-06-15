@@ -13,6 +13,9 @@ import os
 from win10toast import ToastNotifier
 #import login_page_test as login
 import socket
+import class_assignment_server as task_server
+
+
 stop_event = Event()
 
 
@@ -327,6 +330,8 @@ def start_services():
     file_receiving_server = FileReceiver()
     file_receiving_thread = Thread(target=file_receiving_server.receive_file)
     file_receiving_thread.start()
+    assignment_thread = Thread(target=task_server.receive_assignment_from_client)
+    assignment_thread.start()
 
 
 
