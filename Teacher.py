@@ -209,7 +209,7 @@ class FileReciever:
         # Receive file data
         # Ensure the downloads path exists
         os.makedirs(self.downloads_path, exist_ok=True)
-        
+
         with open(os.path.join(self.downloads_path, file_name), 'wb') as f:
             bytes_read = 0
             while bytes_read < file_size:
@@ -246,7 +246,7 @@ class ScreenShare:
         return buf
 
 
-    def screenshare(self, host, port=5000): #insert wanted computers name 
+    def watch_screen(self, host, port=5000): #insert wanted computers name 
         pygame.init()
         screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT)) # making pygamae window 
         clock = pygame.time.Clock()
@@ -501,10 +501,10 @@ def send_file_to_all(file_path):
 
 def activate_screensharing(com_name):
     screenshare = ScreenShare()
-    screensharing_thread = Thread(target=screenshare.screenshare, args=(com_name,))
+    screensharing_thread = Thread(target=screenshare.watch_screen, args=(com_name,))
     screensharing_thread.daemon = True
     screensharing_thread.start()
-    #ScreenShare.screenshare(screenshare, com_name)
+    
 
 def run_GUI():
     global app
